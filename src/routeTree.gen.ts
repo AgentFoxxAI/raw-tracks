@@ -14,7 +14,6 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as FeedRouteImport } from './routes/feed'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as OffcutIdRouteImport } from './routes/offcut.$id'
 
 const UploadRoute = UploadRouteImport.update({
   id: '/upload',
@@ -41,11 +40,6 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OffcutIdRoute = OffcutIdRouteImport.update({
-  id: '/offcut/$id',
-  path: '/offcut/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,7 +47,6 @@ export interface FileRoutesByFullPath {
   '/feed': typeof FeedRoute
   '/profile': typeof ProfileRoute
   '/upload': typeof UploadRoute
-  '/offcut/$id': typeof OffcutIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -61,7 +54,6 @@ export interface FileRoutesByTo {
   '/feed': typeof FeedRoute
   '/profile': typeof ProfileRoute
   '/upload': typeof UploadRoute
-  '/offcut/$id': typeof OffcutIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -70,21 +62,13 @@ export interface FileRoutesById {
   '/feed': typeof FeedRoute
   '/profile': typeof ProfileRoute
   '/upload': typeof UploadRoute
-  '/offcut/$id': typeof OffcutIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/feed' | '/profile' | '/upload' | '/offcut/$id'
+  fullPaths: '/' | '/auth' | '/feed' | '/profile' | '/upload'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/feed' | '/profile' | '/upload' | '/offcut/$id'
-  id:
-    | '__root__'
-    | '/'
-    | '/auth'
-    | '/feed'
-    | '/profile'
-    | '/upload'
-    | '/offcut/$id'
+  to: '/' | '/auth' | '/feed' | '/profile' | '/upload'
+  id: '__root__' | '/' | '/auth' | '/feed' | '/profile' | '/upload'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -93,7 +77,6 @@ export interface RootRouteChildren {
   FeedRoute: typeof FeedRoute
   ProfileRoute: typeof ProfileRoute
   UploadRoute: typeof UploadRoute
-  OffcutIdRoute: typeof OffcutIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -133,13 +116,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/offcut/$id': {
-      id: '/offcut/$id'
-      path: '/offcut/$id'
-      fullPath: '/offcut/$id'
-      preLoaderRoute: typeof OffcutIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -149,7 +125,6 @@ const rootRouteChildren: RootRouteChildren = {
   FeedRoute: FeedRoute,
   ProfileRoute: ProfileRoute,
   UploadRoute: UploadRoute,
-  OffcutIdRoute: OffcutIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

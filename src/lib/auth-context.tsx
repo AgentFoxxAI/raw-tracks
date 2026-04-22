@@ -5,8 +5,17 @@ import { supabase } from "@/integrations/supabase/client";
 export interface Profile {
   id: string;
   username: string | null;
+  display_name: string | null;
   email: string | null;
   avatar_url: string | null;
+  bio: string | null;
+  instruments: string[];
+  influences: string | null;
+  location: string | null;
+  collab_status: "open" | "selective" | "closed";
+  links: Array<{ label: string; url: string }>;
+  follower_count: number;
+  following_count: number;
   tier: "free" | "paid";
   terms_accepted: boolean;
 }
@@ -31,19 +40,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadProfile = async (uid: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("id, username, email, avatar_url, tier, terms_accepted")
+      .select("*")
       .eq("id", uid)
       .maybeSingle();
-    setProfile((data as Profile) ?? null);
+    if (!data) {
+      setProfile(null);
+      return;
+    }
+    setProfile({
+      id: data.id,
+      username: data.username,
+      display_name: (data as { display_name?: string | null }).display_name ?? data.username,
+      email: data.email,
+      avatar_url: data.avatar_url,
+      bio: (data as { bio?: string | null }).bio ?? null,
+      instruments: ((data as { instruments?: string[] }).instruments ?? []) as string[],
+      influences: (data as { influences?: string | null }).influences ?? null,
+      location: (data as { location?: string | null }).location ?? null,
+      collab_status:
+        ((data as { collab_status?: string }).collab_status as Profile["collab_status"]) ?? "closed",
+      links: (((data as { links?: unknown }).links ?? []) as Profile["links"]),
+      follower_count: (data as { follower_count?: number }).follower_count ?? 0,
+      following_count: (data as { following_count?: number }).following_count ?? 0,
+      tier: (data.tier as Profile["tier"]) ?? "free",
+      terms_accepted: data.terms_accepted ?? false,
+    });
   };
 
   useEffect(() => {
-    // Set listener FIRST, then check existing session.
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
       if (newSession?.user) {
-        // Defer to avoid recursion in the listener
         setTimeout(() => {
           void loadProfile(newSession.user.id);
         }, 0);
