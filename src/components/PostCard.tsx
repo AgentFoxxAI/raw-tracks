@@ -57,7 +57,7 @@ export function PostCard({ post, autoplayOnVisible = true }: Props) {
 
   // Subscribe to active-player coordinator
   useEffect(() => {
-    return ActivePlayer.subscribe((id) => {
+    const unsub = ActivePlayer.subscribe((id) => {
       setIsActive(id === post.id);
       if (id !== post.id) {
         const el = mediaEl();
@@ -70,6 +70,9 @@ export function PostCard({ post, autoplayOnVisible = true }: Props) {
         playCounted.current = false;
       }
     });
+    return () => {
+      unsub;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post.id]);
 
