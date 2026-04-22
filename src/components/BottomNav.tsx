@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, Plus, User } from "lucide-react";
+import { Home, Plus, User, Compass } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function BottomNav() {
@@ -7,9 +7,31 @@ export function BottomNav() {
   const path = location.pathname;
 
   const items = [
-    { to: "/feed" as const, icon: Home, label: "Feed", match: (p: string) => p === "/feed" || p.startsWith("/offcut") },
-    { to: "/upload" as const, icon: Plus, label: "Upload", match: (p: string) => p === "/upload", primary: true },
-    { to: "/profile" as const, icon: User, label: "Profile", match: (p: string) => p === "/profile" },
+    {
+      to: "/feed" as const,
+      icon: Home,
+      label: "Feed",
+      match: (p: string) => p === "/feed" || p.startsWith("/post"),
+    },
+    {
+      to: "/discover" as const,
+      icon: Compass,
+      label: "Discover",
+      match: (p: string) => p.startsWith("/discover") || p.startsWith("/u/"),
+    },
+    {
+      to: "/upload" as const,
+      icon: Plus,
+      label: "Post",
+      match: (p: string) => p === "/upload",
+      primary: true,
+    },
+    {
+      to: "/profile" as const,
+      icon: User,
+      label: "You",
+      match: (p: string) => p === "/profile" || p.startsWith("/profile"),
+    },
   ];
 
   return (

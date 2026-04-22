@@ -1,8 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { z } from "zod";
-import { zodValidator } from "@tanstack/zod-adapter";
-import { Upload as UploadIcon, X } from "lucide-react";
+import { Upload as UploadIcon, X, Music, Video } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { AppShell } from "@/components/AppShell";
@@ -11,19 +9,13 @@ import { Waveform } from "@/components/Waveform";
 import {
   INSTRUMENT_TAGS,
   type InstrumentTag,
-  audioBufferToWav,
   fileToAudioBuffer,
   formatDuration,
   generateWaveformData,
   suggestInstrumentFromBuffer,
 } from "@/lib/instrument";
 
-const searchSchema = z.object({
-  parent: z.string().optional(),
-});
-
 export const Route = createFileRoute("/upload")({
-  validateSearch: zodValidator(searchSchema),
   component: UploadPage,
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession();
@@ -33,27 +25,31 @@ export const Route = createFileRoute("/upload")({
   },
 });
 
-const ACCEPTED = ".m4a,.mp3,.wav,.mp4,.mov,audio/*,video/*";
+const ACCEPTED = ".m4a,.mp3,.wav,.mp4,.mov,.webm,audio/*,video/*";
+const MAX_VIDEO_SECONDS = 60;
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+
+type Visibility = "public" | "followers" | "private";
 
 function UploadPage() {
   const navigate = useNavigate();
   const { user, profile, refreshProfile } = useAuth();
-  const { parent } = Route.useSearch();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const videoElRef = useRef<HTMLVideoElement | null>(null);
 
   const [showTerms, setShowTerms] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [mediaType, setMediaType] = useState<"audio" | "video">("audio");
   const [waveform, setWaveform] = useState<number[] | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
+  const [posterBlob, setPosterBlob] = useState<Blob | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [instrument, setInstrument] = useState<InstrumentTag>("other");
-  const [visibility, setVisibility] = useState<"public" | "private">("public");
-  const [license, setLicense] = useState<"collaborate" | "free_to_use" | "private">("collaborate");
-  const [parentTitle, setParentTitle] = useState<string | null>(null);
+  const [visibility, setVisibility] = useState<Visibility>("public");
 
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -64,38 +60,79 @@ function UploadPage() {
   }, [profile]);
 
   useEffect(() => {
-    if (!parent) return;
-    void supabase
-      .from("offcuts")
-      .select("title")
-      .eq("id", parent)
-      .maybeSingle()
-      .then(({ data }) => setParentTitle(data?.title ?? null));
-  }, [parent]);
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const handleFile = useCallback(async (f: File) => {
     setErr(null);
+    const isVideo = f.type.startsWith("video/");
+
+    if (isVideo) {
+      if (f.size > MAX_VIDEO_BYTES) {
+        setErr("Video is over 50MB. Try a shorter clip.");
+        return;
+      }
+    }
+
     setFile(f);
+    setMediaType(isVideo ? "video" : "audio");
     setAnalyzing(true);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    const url = URL.createObjectURL(f);
+    setPreviewUrl(url);
+
     try {
+      // Decode audio (works for both audio + video files)
       const buffer = await fileToAudioBuffer(f);
       setDuration(buffer.duration);
       setWaveform(generateWaveformData(buffer));
       setInstrument(suggestInstrumentFromBuffer(buffer));
-      // For video files extract audio as WAV; otherwise upload original.
-      if (f.type.startsWith("video/")) {
-        const wavBlob = audioBufferToWav(buffer);
-        setAudioBlob(wavBlob);
-      } else {
-        setAudioBlob(f);
+
+      if (isVideo && buffer.duration > MAX_VIDEO_SECONDS) {
+        setErr(`Video is ${Math.round(buffer.duration)}s — keep it under ${MAX_VIDEO_SECONDS}s.`);
+        setFile(null);
+        URL.revokeObjectURL(url);
+        setPreviewUrl(null);
+        setAnalyzing(false);
+        return;
       }
+
       if (!title) setTitle(f.name.replace(/\.[^.]+$/, ""));
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not decode audio.");
+      setErr(e instanceof Error ? e.message : "Could not decode media.");
     } finally {
       setAnalyzing(false);
     }
-  }, [title]);
+  }, [previewUrl, title]);
+
+  const grabVideoPoster = useCallback(async () => {
+    const v = videoElRef.current;
+    if (!v) return;
+    try {
+      v.currentTime = Math.min(1, v.duration * 0.1);
+      await new Promise<void>((res) => {
+        const onSeeked = () => {
+          v.removeEventListener("seeked", onSeeked);
+          res();
+        };
+        v.addEventListener("seeked", onSeeked);
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = v.videoWidth;
+      canvas.height = v.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+      const blob: Blob | null = await new Promise((res) =>
+        canvas.toBlob((b) => res(b), "image/jpeg", 0.85),
+      );
+      if (blob) setPosterBlob(blob);
+    } catch {
+      /* poster optional */
+    }
+  }, []);
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -104,7 +141,7 @@ function UploadPage() {
   };
 
   const submit = async () => {
-    if (!user || !audioBlob || !file) return;
+    if (!user || !file) return;
     if (profile && !profile.terms_accepted) {
       setShowTerms(true);
       return;
@@ -117,42 +154,48 @@ function UploadPage() {
     setUploading(true);
     setProgress(10);
     try {
-      const ext = audioBlob.type.includes("wav") ? "wav" : file.name.split(".").pop() ?? "mp3";
+      const ext = file.name.split(".").pop() ?? (mediaType === "video" ? "mp4" : "mp3");
       const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("audio").upload(path, audioBlob, {
-        contentType: audioBlob.type || "audio/mpeg",
+
+      const { error: upErr } = await supabase.storage.from("audio").upload(path, file, {
+        contentType: file.type || (mediaType === "video" ? "video/mp4" : "audio/mpeg"),
         upsert: false,
       });
       if (upErr) throw upErr;
-      setProgress(70);
+      setProgress(60);
       const { data: pub } = supabase.storage.from("audio").getPublicUrl(path);
 
+      let thumbnailUrl: string | null = null;
+      if (mediaType === "video" && posterBlob) {
+        const tPath = `${user.id}/posters/${Date.now()}.jpg`;
+        const { error: tErr } = await supabase.storage
+          .from("audio")
+          .upload(tPath, posterBlob, { contentType: "image/jpeg", upsert: false });
+        if (!tErr) {
+          thumbnailUrl = supabase.storage.from("audio").getPublicUrl(tPath).data.publicUrl;
+        }
+      }
+      setProgress(80);
+
       const { data: inserted, error: insErr } = await supabase
-        .from("offcuts")
+        .from("posts")
         .insert({
           user_id: user.id,
           title: title.trim(),
           description: description.trim() || null,
-          audio_url: pub.publicUrl,
+          media_type: mediaType,
+          media_url: pub.publicUrl,
+          audio_url: pub.publicUrl, // keep alias populated
+          thumbnail_url: thumbnailUrl,
           duration_seconds: duration,
           instrument_tag: instrument,
           visibility,
-          license_type: license,
-          waveform_data: waveform,
         })
         .select("id")
         .single();
       if (insErr) throw insErr;
-
-      if (parent && inserted) {
-        await supabase.from("stacks").insert({
-          parent_offcut_id: parent,
-          child_offcut_id: inserted.id,
-          created_by_user_id: user.id,
-        });
-      }
       setProgress(100);
-      void navigate({ to: "/offcut/$id", params: { id: inserted!.id } });
+      void navigate({ to: "/post/$id", params: { id: inserted!.id } });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Upload failed.");
       setUploading(false);
@@ -172,12 +215,10 @@ function UploadPage() {
       )}
 
       <div className="mb-4">
-        <p className="label-tape text-primary">{parent ? "Stacking on" : "New upload"}</p>
-        <h1 className="text-2xl font-black">
-          {parent ? parentTitle ?? "Adding a layer" : "Drop a take"}
-        </h1>
+        <p className="label-tape text-primary">New post</p>
+        <h1 className="text-2xl font-black">Drop a take</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Audio or video — we'll grab the audio. Mid-take coughs encouraged.
+          Audio or video clip. Voice memos, riffs, performances, sketches — all welcome.
         </p>
       </div>
 
@@ -192,7 +233,9 @@ function UploadPage() {
             <UploadIcon size={26} />
           </span>
           <p className="mt-4 font-semibold">Tap or drag a file here</p>
-          <p className="mt-1 text-xs text-muted-foreground">.m4a, .mp3, .wav, .mp4, .mov</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Audio (.m4a .mp3 .wav) or video (.mp4 .mov .webm, max 60s / 50MB)
+          </p>
           <input
             ref={inputRef}
             type="file"
@@ -208,17 +251,26 @@ function UploadPage() {
         <div className="space-y-5">
           <div className="rounded-xl border border-border bg-surface p-4">
             <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{file.name}</p>
-                <p className="label-tape text-muted-foreground">
-                  {formatDuration(duration ?? 0)} · {(file.size / 1024 / 1024).toFixed(2)} MB
-                </p>
+              <div className="min-w-0 flex items-center gap-2">
+                {mediaType === "video" ? (
+                  <Video size={16} className="shrink-0 text-primary" />
+                ) : (
+                  <Music size={16} className="shrink-0 text-primary" />
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{file.name}</p>
+                  <p className="label-tape text-muted-foreground">
+                    {formatDuration(duration ?? 0)} · {(file.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => {
                   setFile(null);
-                  setAudioBlob(null);
                   setWaveform(null);
+                  setPosterBlob(null);
+                  if (previewUrl) URL.revokeObjectURL(previewUrl);
+                  setPreviewUrl(null);
                 }}
                 className="rounded-full p-1.5 text-muted-foreground hover:bg-surface-elevated hover:text-foreground"
                 aria-label="Remove"
@@ -229,6 +281,15 @@ function UploadPage() {
             <div className="mt-4">
               {analyzing ? (
                 <div className="h-14 animate-pulse rounded bg-surface-elevated" />
+              ) : mediaType === "video" && previewUrl ? (
+                <video
+                  ref={videoElRef}
+                  src={previewUrl}
+                  className="aspect-video w-full rounded-lg bg-background object-contain"
+                  controls
+                  playsInline
+                  onLoadedMetadata={() => void grabVideoPoster()}
+                />
               ) : (
                 <Waveform data={waveform} height={56} />
               )}
@@ -268,27 +329,16 @@ function UploadPage() {
             </select>
           </Field>
 
-          <Field label="Visibility">
-            <div className="flex gap-2">
-              {(["public", "private"] as const).map((v) => (
-                <Toggle
-                  key={v}
-                  active={visibility === v}
-                  onClick={() => setVisibility(v)}
-                  label={v}
-                />
-              ))}
-            </div>
-          </Field>
-
-          <Field label="License">
+          <Field label="Who can see this?">
             <div className="grid grid-cols-3 gap-2">
-              {([
-                ["collaborate", "Collab"],
-                ["free_to_use", "Free use"],
-                ["private", "Private"],
-              ] as const).map(([v, l]) => (
-                <Toggle key={v} active={license === v} onClick={() => setLicense(v)} label={l} />
+              {(
+                [
+                  ["public", "Public"],
+                  ["followers", "Followers"],
+                  ["private", "Only me"],
+                ] as const
+              ).map(([v, l]) => (
+                <Toggle key={v} active={visibility === v} onClick={() => setVisibility(v)} label={l} />
               ))}
             </div>
           </Field>
@@ -311,7 +361,7 @@ function UploadPage() {
               />
             )}
             <span className="relative">
-              {uploading ? `Uploading ${progress}%` : parent ? "Stack it" : "Publish offcut"}
+              {uploading ? `Uploading ${progress}%` : "Publish post"}
             </span>
           </button>
         </div>

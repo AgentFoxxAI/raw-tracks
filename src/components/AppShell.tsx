@@ -15,7 +15,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               ✂
             </span>
             <span className="text-lg font-bold tracking-tight">
-              Offcuts<span className="text-primary">.</span>
+              Offcuts<sup className="text-primary text-[0.55rem] font-bold ml-0.5">™</sup>
             </span>
           </Link>
           {!user && (

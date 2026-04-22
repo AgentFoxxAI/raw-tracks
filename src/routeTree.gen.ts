@@ -12,9 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as UploadRouteImport } from './routes/upload'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as FeedRouteImport } from './routes/feed'
+import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as OffcutIdRouteImport } from './routes/offcut.$id'
+import { Route as UUsernameRouteImport } from './routes/u.$username'
+import { Route as ProfileEditRouteImport } from './routes/profile.edit'
+import { Route as PostIdRouteImport } from './routes/post.$id'
 
 const UploadRoute = UploadRouteImport.update({
   id: '/upload',
@@ -31,6 +34,11 @@ const FeedRoute = FeedRouteImport.update({
   path: '/feed',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DiscoverRoute = DiscoverRouteImport.update({
+  id: '/discover',
+  path: '/discover',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -41,59 +49,101 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OffcutIdRoute = OffcutIdRouteImport.update({
-  id: '/offcut/$id',
-  path: '/offcut/$id',
+const UUsernameRoute = UUsernameRouteImport.update({
+  id: '/u/$username',
+  path: '/u/$username',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileEditRoute = ProfileEditRouteImport.update({
+  id: '/edit',
+  path: '/edit',
+  getParentRoute: () => ProfileRoute,
+} as any)
+const PostIdRoute = PostIdRouteImport.update({
+  id: '/post/$id',
+  path: '/post/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/discover': typeof DiscoverRoute
   '/feed': typeof FeedRoute
-  '/profile': typeof ProfileRoute
+  '/profile': typeof ProfileRouteWithChildren
   '/upload': typeof UploadRoute
-  '/offcut/$id': typeof OffcutIdRoute
+  '/post/$id': typeof PostIdRoute
+  '/profile/edit': typeof ProfileEditRoute
+  '/u/$username': typeof UUsernameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/discover': typeof DiscoverRoute
   '/feed': typeof FeedRoute
-  '/profile': typeof ProfileRoute
+  '/profile': typeof ProfileRouteWithChildren
   '/upload': typeof UploadRoute
-  '/offcut/$id': typeof OffcutIdRoute
+  '/post/$id': typeof PostIdRoute
+  '/profile/edit': typeof ProfileEditRoute
+  '/u/$username': typeof UUsernameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/discover': typeof DiscoverRoute
   '/feed': typeof FeedRoute
-  '/profile': typeof ProfileRoute
+  '/profile': typeof ProfileRouteWithChildren
   '/upload': typeof UploadRoute
-  '/offcut/$id': typeof OffcutIdRoute
+  '/post/$id': typeof PostIdRoute
+  '/profile/edit': typeof ProfileEditRoute
+  '/u/$username': typeof UUsernameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/feed' | '/profile' | '/upload' | '/offcut/$id'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/discover'
+    | '/feed'
+    | '/profile'
+    | '/upload'
+    | '/post/$id'
+    | '/profile/edit'
+    | '/u/$username'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/feed' | '/profile' | '/upload' | '/offcut/$id'
+  to:
+    | '/'
+    | '/auth'
+    | '/discover'
+    | '/feed'
+    | '/profile'
+    | '/upload'
+    | '/post/$id'
+    | '/profile/edit'
+    | '/u/$username'
   id:
     | '__root__'
     | '/'
     | '/auth'
+    | '/discover'
     | '/feed'
     | '/profile'
     | '/upload'
-    | '/offcut/$id'
+    | '/post/$id'
+    | '/profile/edit'
+    | '/u/$username'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  DiscoverRoute: typeof DiscoverRoute
   FeedRoute: typeof FeedRoute
-  ProfileRoute: typeof ProfileRoute
+  ProfileRoute: typeof ProfileRouteWithChildren
   UploadRoute: typeof UploadRoute
-  OffcutIdRoute: typeof OffcutIdRoute
+  PostIdRoute: typeof PostIdRoute
+  UUsernameRoute: typeof UUsernameRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -119,6 +169,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FeedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/discover': {
+      id: '/discover'
+      path: '/discover'
+      fullPath: '/discover'
+      preLoaderRoute: typeof DiscoverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -133,23 +190,50 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/offcut/$id': {
-      id: '/offcut/$id'
-      path: '/offcut/$id'
-      fullPath: '/offcut/$id'
-      preLoaderRoute: typeof OffcutIdRouteImport
+    '/u/$username': {
+      id: '/u/$username'
+      path: '/u/$username'
+      fullPath: '/u/$username'
+      preLoaderRoute: typeof UUsernameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile/edit': {
+      id: '/profile/edit'
+      path: '/edit'
+      fullPath: '/profile/edit'
+      preLoaderRoute: typeof ProfileEditRouteImport
+      parentRoute: typeof ProfileRoute
+    }
+    '/post/$id': {
+      id: '/post/$id'
+      path: '/post/$id'
+      fullPath: '/post/$id'
+      preLoaderRoute: typeof PostIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
 }
 
+interface ProfileRouteChildren {
+  ProfileEditRoute: typeof ProfileEditRoute
+}
+
+const ProfileRouteChildren: ProfileRouteChildren = {
+  ProfileEditRoute: ProfileEditRoute,
+}
+
+const ProfileRouteWithChildren =
+  ProfileRoute._addFileChildren(ProfileRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  DiscoverRoute: DiscoverRoute,
   FeedRoute: FeedRoute,
-  ProfileRoute: ProfileRoute,
+  ProfileRoute: ProfileRouteWithChildren,
   UploadRoute: UploadRoute,
-  OffcutIdRoute: OffcutIdRoute,
+  PostIdRoute: PostIdRoute,
+  UUsernameRoute: UUsernameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
