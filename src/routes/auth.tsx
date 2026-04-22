@@ -68,7 +68,7 @@ function AuthPage() {
             ✂
           </span>
           <span className="text-2xl font-black tracking-tight">
-            Offcuts<span className="text-primary">.</span>
+            Offcuts<sup className="text-primary text-xs font-bold ml-0.5">™</sup>
           </span>
         </div>
 
@@ -77,6 +77,9 @@ function AuthPage() {
           <br />
           <span className="text-primary">Real collaboration.</span>
         </h1>
+        <p className="mt-3 text-base font-semibold italic text-foreground">
+          "The song stays human. The workflow just got smarter."
+        </p>
         <p className="mt-3 text-sm text-muted-foreground">
           Upload voice memos and demos. Get real feedback. Stack new takes on top of other
           musicians' work. No AI. Just humans making things together.
