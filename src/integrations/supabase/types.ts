@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          parent_comment_id: string | null
+          post_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          parent_comment_id?: string | null
+          post_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          parent_comment_id?: string | null
+          post_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       downloads: {
         Row: {
           created_at: string
@@ -41,10 +86,31 @@ export type Database = {
             foreignKeyName: "downloads_offcut_id_fkey"
             columns: ["offcut_id"]
             isOneToOne: false
-            referencedRelation: "offcuts"
+            referencedRelation: "posts"
             referencedColumns: ["id"]
           },
         ]
+      }
+      follows: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: []
       }
       interactions: {
         Row: {
@@ -82,12 +148,41 @@ export type Database = {
             foreignKeyName: "interactions_offcut_id_fkey"
             columns: ["offcut_id"]
             isOneToOne: false
-            referencedRelation: "offcuts"
+            referencedRelation: "posts"
             referencedColumns: ["id"]
           },
         ]
       }
-      offcuts: {
+      likes: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      posts: {
         Row: {
           audio_url: string
           created_at: string
@@ -96,8 +191,13 @@ export type Database = {
           id: string
           instrument_tag: string
           license_type: string
+          media_type: string
+          media_url: string
           play_count: number
+          quote_of_post_id: string | null
+          thumbnail_url: string | null
           title: string
+          updated_at: string
           user_id: string
           visibility: string
           waveform_data: Json | null
@@ -110,8 +210,13 @@ export type Database = {
           id?: string
           instrument_tag?: string
           license_type?: string
+          media_type?: string
+          media_url: string
           play_count?: number
+          quote_of_post_id?: string | null
+          thumbnail_url?: string | null
           title: string
+          updated_at?: string
           user_id: string
           visibility?: string
           waveform_data?: Json | null
@@ -124,20 +229,42 @@ export type Database = {
           id?: string
           instrument_tag?: string
           license_type?: string
+          media_type?: string
+          media_url?: string
           play_count?: number
+          quote_of_post_id?: string | null
+          thumbnail_url?: string | null
           title?: string
+          updated_at?: string
           user_id?: string
           visibility?: string
           waveform_data?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "posts_quote_of_post_id_fkey"
+            columns: ["quote_of_post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
           avatar_url: string | null
+          bio: string | null
+          collab_status: string
           created_at: string
+          display_name: string | null
           email: string | null
+          follower_count: number
+          following_count: number
           id: string
+          influences: string | null
+          instruments: string[]
+          links: Json
+          location: string | null
           terms_accepted: boolean
           tier: string
           updated_at: string
@@ -145,9 +272,18 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
+          collab_status?: string
           created_at?: string
+          display_name?: string | null
           email?: string | null
+          follower_count?: number
+          following_count?: number
           id: string
+          influences?: string | null
+          instruments?: string[]
+          links?: Json
+          location?: string | null
           terms_accepted?: boolean
           tier?: string
           updated_at?: string
@@ -155,15 +291,85 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
+          collab_status?: string
           created_at?: string
+          display_name?: string | null
           email?: string | null
+          follower_count?: number
+          following_count?: number
           id?: string
+          influences?: string | null
+          instruments?: string[]
+          links?: Json
+          location?: string | null
           terms_accepted?: boolean
           tier?: string
           updated_at?: string
           username?: string | null
         }
         Relationships: []
+      }
+      reposts: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          quote_text: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          quote_text?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          quote_text?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reposts_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saves: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saves_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stacks: {
         Row: {
@@ -192,14 +398,14 @@ export type Database = {
             foreignKeyName: "stacks_child_offcut_id_fkey"
             columns: ["child_offcut_id"]
             isOneToOne: false
-            referencedRelation: "offcuts"
+            referencedRelation: "posts"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "stacks_parent_offcut_id_fkey"
             columns: ["parent_offcut_id"]
             isOneToOne: false
-            referencedRelation: "offcuts"
+            referencedRelation: "posts"
             referencedColumns: ["id"]
           },
         ]
