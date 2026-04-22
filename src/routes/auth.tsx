@@ -78,9 +78,9 @@ function AuthPage() {
           <span className="text-primary">Real collaboration.</span>
         </h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          Your voice memos, auto-organized and searchable. Your demos, shared with real musicians
-          who give feedback and stack new ideas. AI-adaptable, not AI-dependent. The song stays
-          human. The workflow just got smarter.
+          Your audio notes, auto-organized and searchable. Share them, discover new music,
+          collaborate with other musicians, or keep them private. Organize with AI. Create with
+          humans.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-3">
