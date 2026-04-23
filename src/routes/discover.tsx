@@ -1,8 +1,9 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/AppShell";
+import { MOCK_ARTISTS } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/discover")({
   component: DiscoverPage,
@@ -22,6 +23,7 @@ interface ProfileResult {
   bio: string | null;
   follower_count: number;
   collab_status: string;
+  is_mock?: boolean;
 }
 
 function DiscoverPage() {
@@ -44,7 +46,31 @@ function DiscoverPage() {
       }
       const { data } = await q;
       if (!active) return;
-      setResults(((data ?? []) as ProfileResult[]).filter((p) => p.username));
+
+      const real: ProfileResult[] = ((data ?? []) as ProfileResult[]).filter((p) => p.username);
+
+      const mocks: ProfileResult[] = MOCK_ARTISTS.map((m) => ({
+        id: m.id,
+        username: m.username,
+        display_name: m.display_name,
+        avatar_url: m.avatar_url,
+        bio: m.bio,
+        follower_count: m.follower_count,
+        collab_status: m.collab_status,
+        is_mock: true,
+      }));
+      const filtered = query.trim()
+        ? mocks.filter((m) => {
+            const t = query.toLowerCase();
+            return (
+              m.username?.toLowerCase().includes(t) ||
+              m.display_name?.toLowerCase().includes(t) ||
+              m.bio?.toLowerCase().includes(t)
+            );
+          })
+        : mocks;
+
+      setResults([...real, ...filtered].sort((a, b) => b.follower_count - a.follower_count));
       setLoading(false);
     })();
     return () => {
@@ -87,37 +113,50 @@ function DiscoverPage() {
           {results.map((p) => {
             const dn = p.display_name ?? p.username ?? "—";
             const initials = dn.slice(0, 1).toUpperCase();
+            const inner = (
+              <div className="flex items-center gap-3 p-3 hover:bg-surface-elevated">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-lg font-black text-primary-foreground">
+                  {p.avatar_url ? (
+                    <img src={p.avatar_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    initials
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate font-bold">{dn}</span>
+                    {p.collab_status === "open" && (
+                      <span className="label-tape shrink-0 rounded-full border border-primary/40 bg-primary/10 px-1.5 text-primary">
+                        open
+                      </span>
+                    )}
+                    {p.is_mock && (
+                      <span className="label-tape shrink-0 rounded-full border border-border bg-background px-1.5 text-muted-foreground">
+                        demo
+                      </span>
+                    )}
+                  </div>
+                  <p className="truncate text-xs text-muted-foreground">
+                    @{p.username} · {p.follower_count.toLocaleString()} followers
+                  </p>
+                  {p.bio && (
+                    <p className="mt-0.5 line-clamp-1 text-xs text-foreground/70">{p.bio}</p>
+                  )}
+                </div>
+                {p.is_mock && (
+                  <Sparkles size={14} className="shrink-0 text-muted-foreground" />
+                )}
+              </div>
+            );
             return (
               <li key={p.id}>
-                <Link
-                  to="/u/$username"
-                  params={{ username: p.username ?? "" }}
-                  className="flex items-center gap-3 p-3 hover:bg-surface-elevated"
-                >
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-lg font-black text-primary-foreground">
-                    {p.avatar_url ? (
-                      <img src={p.avatar_url} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      initials
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-bold">{dn}</span>
-                      {p.collab_status === "open" && (
-                        <span className="label-tape shrink-0 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-1.5 text-emerald-300">
-                          open
-                        </span>
-                      )}
-                    </div>
-                    <p className="truncate text-xs text-muted-foreground">
-                      @{p.username} · {p.follower_count} followers
-                    </p>
-                    {p.bio && (
-                      <p className="mt-0.5 line-clamp-1 text-xs text-foreground/70">{p.bio}</p>
-                    )}
-                  </div>
-                </Link>
+                {p.is_mock ? (
+                  <div>{inner}</div>
+                ) : (
+                  <Link to="/u/$username" params={{ username: p.username ?? "" }}>
+                    {inner}
+                  </Link>
+                )}
               </li>
             );
           })}
