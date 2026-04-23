@@ -50,6 +50,7 @@ function UploadPage() {
   const [description, setDescription] = useState("");
   const [instrument, setInstrument] = useState<InstrumentTag>("other");
   const [visibility, setVisibility] = useState<Visibility>("public");
+  const [commentsEnabled, setCommentsEnabled] = useState(true);
 
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -190,6 +191,7 @@ function UploadPage() {
           duration_seconds: duration,
           instrument_tag: instrument,
           visibility,
+          comments_enabled: commentsEnabled,
         })
         .select("id")
         .single();
@@ -340,6 +342,21 @@ function UploadPage() {
               ).map(([v, l]) => (
                 <Toggle key={v} active={visibility === v} onClick={() => setVisibility(v)} label={l} />
               ))}
+            </div>
+          </Field>
+
+          <Field label="Comments">
+            <div className="grid grid-cols-2 gap-2">
+              <Toggle
+                active={commentsEnabled}
+                onClick={() => setCommentsEnabled(true)}
+                label="Comments on"
+              />
+              <Toggle
+                active={!commentsEnabled}
+                onClick={() => setCommentsEnabled(false)}
+                label="Reactions only"
+              />
             </div>
           </Field>
 
