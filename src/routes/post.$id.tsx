@@ -1,14 +1,20 @@
 import { createFileRoute, Link, redirect, useRouter } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { Send, Play, Volume2, VolumeX } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Send, Play, Volume2, VolumeX, Trash2, MessageSquareOff, SmilePlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { AppShell } from "@/components/AppShell";
 import { Waveform } from "@/components/Waveform";
 import { InstrumentBadge } from "@/components/InstrumentBadge";
 import { SocialActions } from "@/components/SocialActions";
+import { TimestampReactionsBar } from "@/components/TimestampReactionsBar";
 import { ActivePlayer } from "@/lib/active-player";
 import { formatDuration } from "@/lib/instrument";
+import {
+  REACTION_EMOJIS,
+  mockTimestampReactionsFor,
+  type MockTimestampReaction,
+} from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/post/$id")({
@@ -35,6 +41,7 @@ interface FullPost {
   waveform_data: number[] | null;
   play_count: number;
   created_at: string;
+  comments_enabled: boolean;
   profile?: {
     id: string;
     username: string | null;
@@ -49,11 +56,21 @@ interface CommentRow {
   parent_comment_id: string | null;
   content: string;
   created_at: string;
+  reactions: Record<string, string[]>; // emoji -> user_ids
   profile?: { username: string | null; display_name: string | null; avatar_url: string | null } | null;
 }
 
 interface ThreadNode extends CommentRow {
   replies: ThreadNode[];
+}
+
+interface ReactionRow {
+  id: string;
+  user_id: string;
+  emoji: string;
+  timestamp_seconds: number;
+  note: string | null;
+  username: string;
 }
 
 function PostDetail() {
@@ -63,11 +80,14 @@ function PostDetail() {
 
   const [post, setPost] = useState<FullPost | null>(null);
   const [comments, setComments] = useState<CommentRow[]>([]);
+  const [reactions, setReactions] = useState<ReactionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [commentText, setCommentText] = useState("");
   const [replyParentId, setReplyParentId] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
+  const [reactionNote, setReactionNote] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -75,6 +95,7 @@ function PostDetail() {
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [currentSeconds, setCurrentSeconds] = useState(0);
 
   const load = async () => {
     setLoading(true);
@@ -107,6 +128,7 @@ function PostDetail() {
       waveform_data: (o.waveform_data as number[] | null) ?? null,
       play_count: o.play_count,
       created_at: o.created_at,
+      comments_enabled: (o as { comments_enabled?: boolean }).comments_enabled ?? true,
       profile: prof
         ? {
             id: prof.id,
@@ -117,9 +139,35 @@ function PostDetail() {
         : null,
     });
 
+    // Load reactions (real + mock blended for demo)
+    const { data: rs } = await supabase
+      .from("post_reactions")
+      .select("id,user_id,emoji,timestamp_seconds,note")
+      .eq("post_id", id)
+      .order("timestamp_seconds", { ascending: true });
+    const reactionUserIds = Array.from(new Set((rs ?? []).map((r) => r.user_id)));
+    let userMap = new Map<string, { username: string | null }>();
+    if (reactionUserIds.length) {
+      const { data: rp } = await supabase
+        .from("profiles")
+        .select("id,username")
+        .in("id", reactionUserIds);
+      userMap = new Map((rp ?? []).map((p) => [p.id, { username: p.username }]));
+    }
+    const realRows: ReactionRow[] = (rs ?? []).map((r) => ({
+      id: r.id,
+      user_id: r.user_id,
+      emoji: r.emoji,
+      timestamp_seconds: Number(r.timestamp_seconds),
+      note: r.note,
+      username: userMap.get(r.user_id)?.username ?? "anon",
+    }));
+    setReactions(realRows);
+
+    // Load comments
     const { data: cs } = await supabase
       .from("comments")
-      .select("id,user_id,parent_comment_id,content,created_at")
+      .select("id,user_id,parent_comment_id,content,created_at,reactions")
       .eq("post_id", id)
       .order("created_at", { ascending: true });
     if (cs && cs.length) {
@@ -135,6 +183,7 @@ function PostDetail() {
           parent_comment_id: c.parent_comment_id,
           content: c.content,
           created_at: c.created_at,
+          reactions: (c.reactions as Record<string, string[]> | null) ?? {},
           profile: m.has(c.user_id)
             ? {
                 username: m.get(c.user_id)?.username ?? null,
@@ -158,18 +207,20 @@ function PostDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // playback wiring (single player on detail; coordinates with feed via ActivePlayer)
+  // playback wiring
   useEffect(() => {
     if (!post) return;
-    ActivePlayer.set(null); // pause any feed cards
+    ActivePlayer.set(null);
     const el = post.media_type === "video" ? videoRef.current : audioRef.current;
     if (!el) return;
     const onTime = () => {
       if (el.duration > 0) setProgress(el.currentTime / el.duration);
+      setCurrentSeconds(el.currentTime);
     };
     const onEnd = () => {
       setPlaying(false);
       setProgress(0);
+      setCurrentSeconds(0);
       el.currentTime = 0;
     };
     el.addEventListener("timeupdate", onTime);
@@ -213,6 +264,81 @@ function PostDetail() {
     }
   };
 
+  const addTimestampReaction = async (emoji: string) => {
+    if (!user || !post) return;
+    setPickerOpen(false);
+    const note = reactionNote.trim() || null;
+    setReactionNote("");
+    // Optimistic
+    const optimistic: ReactionRow = {
+      id: `temp-${Date.now()}`,
+      user_id: user.id,
+      emoji,
+      timestamp_seconds: currentSeconds,
+      note,
+      username: "you",
+    };
+    setReactions((prev) => [...prev, optimistic]);
+    const { data, error } = await supabase
+      .from("post_reactions")
+      .insert({
+        post_id: post.id,
+        user_id: user.id,
+        emoji,
+        timestamp_seconds: currentSeconds,
+        note,
+      })
+      .select("id")
+      .maybeSingle();
+    if (error) {
+      // revert
+      setReactions((prev) => prev.filter((r) => r.id !== optimistic.id));
+    } else if (data) {
+      setReactions((prev) => prev.map((r) => (r.id === optimistic.id ? { ...r, id: data.id } : r)));
+    }
+  };
+
+  const toggleCommentReaction = async (comment: CommentRow, emoji: string) => {
+    if (!user) return;
+    const current = comment.reactions ?? {};
+    const users = current[emoji] ?? [];
+    const has = users.includes(user.id);
+    const nextUsers = has ? users.filter((u) => u !== user.id) : [...users, user.id];
+    const next = { ...current };
+    if (nextUsers.length === 0) delete next[emoji];
+    else next[emoji] = nextUsers;
+    // Optimistic
+    setComments((prev) => prev.map((c) => (c.id === comment.id ? { ...c, reactions: next } : c)));
+    const { error } = await supabase.from("comments").update({ reactions: next }).eq("id", comment.id);
+    if (error) void load();
+  };
+
+  const deletePost = async () => {
+    if (!post) return;
+    if (!confirm("Delete this post permanently?")) return;
+    await supabase.from("posts").delete().eq("id", post.id);
+    router.navigate({ to: "/feed" });
+  };
+
+  const deleteComment = async (cid: string) => {
+    if (!confirm("Delete this comment?")) return;
+    await supabase.from("comments").delete().eq("id", cid);
+    void load();
+  };
+
+  // Combine real + mock reactions for the demo strip
+  const stripReactions: MockTimestampReaction[] = useMemo(() => {
+    const real: MockTimestampReaction[] = reactions.map((r) => ({
+      id: r.id,
+      username: r.username,
+      emoji: r.emoji,
+      timestamp_seconds: r.timestamp_seconds,
+      note: r.note ?? undefined,
+    }));
+    const mocks = mockTimestampReactionsFor(post?.duration_seconds ?? null);
+    return [...mocks, ...real];
+  }, [reactions, post?.duration_seconds]);
+
   if (loading) {
     return (
       <AppShell>
@@ -236,18 +362,29 @@ function PostDetail() {
   const username = post.profile?.username ?? "anon";
   const displayName = post.profile?.display_name ?? username;
   const initials = displayName.slice(0, 1).toUpperCase();
-
-  // Build comment tree
+  const isOwner = user?.id === post.user_id;
+  const reactionsOnly = !post.comments_enabled;
   const tree = buildTree(comments);
+  const dur = post.duration_seconds ?? 60;
 
   return (
     <AppShell>
-      <button
-        onClick={() => router.history.back()}
-        className="label-tape mb-3 text-muted-foreground hover:text-foreground"
-      >
-        ← Back
-      </button>
+      <div className="mb-3 flex items-center justify-between">
+        <button
+          onClick={() => router.history.back()}
+          className="label-tape text-muted-foreground hover:text-foreground"
+        >
+          ← Back
+        </button>
+        {isOwner && (
+          <button
+            onClick={deletePost}
+            className="label-tape inline-flex items-center gap-1 text-muted-foreground hover:text-destructive"
+          >
+            <Trash2 size={12} /> delete post
+          </button>
+        )}
+      </div>
 
       <article className="rounded-2xl border border-border bg-surface p-5">
         <div className="flex items-start gap-3">
@@ -350,9 +487,62 @@ function PostDetail() {
           )}
         </div>
 
+        {/* Live timestamped reactions strip */}
+        <div className="mt-3">
+          <TimestampReactionsBar
+            reactions={stripReactions}
+            duration={dur}
+            currentSeconds={currentSeconds}
+          />
+        </div>
+
+        {/* Quick-react picker */}
+        <div className="mt-2 rounded-lg border border-dashed border-border bg-background/50 p-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="label-tape text-muted-foreground">
+              react @ {formatDuration(Math.floor(currentSeconds))}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPickerOpen((v) => !v)}
+              className="label-tape inline-flex items-center gap-1 text-primary hover:underline"
+            >
+              <SmilePlus size={12} /> {pickerOpen ? "close" : "drop a reaction"}
+            </button>
+          </div>
+          {pickerOpen && (
+            <div className="mt-2 space-y-2">
+              <input
+                value={reactionNote}
+                onChange={(e) => setReactionNote(e.target.value)}
+                placeholder="optional note (e.g. 'this drop')"
+                maxLength={80}
+                className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs focus:border-primary focus:outline-none"
+              />
+              <div className="flex flex-wrap gap-1.5">
+                {REACTION_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => addTimestampReaction(emoji)}
+                    className="rounded-md border border-border bg-surface px-2 py-1 text-base transition-transform hover:scale-110 active:scale-95"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <InstrumentBadge tag={post.instrument_tag} />
           <span className="label-tape text-muted-foreground">{post.play_count} plays</span>
+          {reactionsOnly && (
+            <span className="label-tape inline-flex items-center gap-1 rounded-md border border-border bg-surface-elevated px-1.5 py-0.5 text-muted-foreground">
+              <MessageSquareOff size={11} /> reactions only
+            </span>
+          )}
         </div>
 
         <div className="mt-4 border-t border-border pt-2">
@@ -360,52 +550,90 @@ function PostDetail() {
         </div>
       </article>
 
-      {/* Comments */}
+      {/* Comments / Reactions-only mode */}
       <section className="mt-6">
-        <h2 className="px-1 text-sm font-bold text-muted-foreground">
-          {comments.length} {comments.length === 1 ? "comment" : "comments"}
-        </h2>
-
-        <div className="mt-3 rounded-xl border border-border bg-surface p-3">
-          {replyParentId && (
-            <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-              <span>Replying to comment</span>
-              <button onClick={() => setReplyParentId(null)} className="text-primary">
-                cancel
-              </button>
-            </div>
-          )}
-          <div className="flex gap-2">
-            <input
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              placeholder={replyParentId ? "Add a reply..." : "Drop a comment..."}
-              className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void submitComment();
-              }}
-            />
-            <button
-              disabled={posting || !commentText.trim()}
-              onClick={submitComment}
-              className="rounded-md bg-primary px-3 text-primary-foreground disabled:opacity-40"
-            >
-              <Send size={16} />
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          {tree.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border bg-surface p-6 text-center text-sm text-muted-foreground">
-              No comments yet. Be first.
+        {reactionsOnly ? (
+          <div className="rounded-xl border border-dashed border-border bg-surface p-6 text-center">
+            <MessageSquareOff size={20} className="mx-auto text-muted-foreground" />
+            <p className="mt-2 text-sm font-bold">Comments are off for this post</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              The artist accepts emoji reactions only. Drop one on the timeline above.
             </p>
-          ) : (
-            tree.map((c) => (
-              <CommentNode key={c.id} node={c} depth={0} onReply={(pid) => setReplyParentId(pid)} />
-            ))
-          )}
-        </div>
+            {reactions.length > 0 && (
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                {Object.entries(
+                  reactions.reduce<Record<string, number>>((acc, r) => {
+                    acc[r.emoji] = (acc[r.emoji] ?? 0) + 1;
+                    return acc;
+                  }, {}),
+                ).map(([emoji, count]) => (
+                  <span
+                    key={emoji}
+                    className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-elevated px-2.5 py-1 text-sm"
+                  >
+                    <span>{emoji}</span>
+                    <span className="text-xs text-muted-foreground">{count}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <h2 className="px-1 text-sm font-bold text-muted-foreground">
+              {comments.length} {comments.length === 1 ? "comment" : "comments"}
+            </h2>
+
+            <div className="mt-3 rounded-xl border border-border bg-surface p-3">
+              {replyParentId && (
+                <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Replying to comment</span>
+                  <button onClick={() => setReplyParentId(null)} className="text-primary">
+                    cancel
+                  </button>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder={replyParentId ? "Add a reply..." : "Drop a comment..."}
+                  className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void submitComment();
+                  }}
+                />
+                <button
+                  disabled={posting || !commentText.trim()}
+                  onClick={submitComment}
+                  className="rounded-md bg-primary px-3 text-primary-foreground disabled:opacity-40"
+                >
+                  <Send size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {tree.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border bg-surface p-6 text-center text-sm text-muted-foreground">
+                  No comments yet. Be first.
+                </p>
+              ) : (
+                tree.map((c) => (
+                  <CommentNode
+                    key={c.id}
+                    node={c}
+                    depth={0}
+                    currentUserId={user?.id ?? null}
+                    onReply={(pid) => setReplyParentId(pid)}
+                    onReact={toggleCommentReaction}
+                    onDelete={deleteComment}
+                  />
+                ))
+              )}
+            </div>
+          </>
+        )}
       </section>
     </AppShell>
   );
@@ -430,14 +658,24 @@ function buildTree(rows: CommentRow[]): ThreadNode[] {
 function CommentNode({
   node,
   depth,
+  currentUserId,
   onReply,
+  onReact,
+  onDelete,
 }: {
   node: ThreadNode;
   depth: number;
+  currentUserId: string | null;
   onReply: (parentId: string) => void;
+  onReact: (comment: CommentRow, emoji: string) => void;
+  onDelete: (commentId: string) => void;
 }) {
+  const [showPicker, setShowPicker] = useState(false);
   const dn = node.profile?.display_name ?? node.profile?.username ?? "anon";
   const initials = dn.slice(0, 1).toUpperCase();
+  const isOwner = currentUserId === node.user_id;
+  const reactionEntries = Object.entries(node.reactions ?? {}).filter(([, ids]) => ids.length > 0);
+
   return (
     <div className={cn(depth > 0 && "ml-4 border-l border-border pl-3")}>
       <div className="rounded-lg border border-border bg-surface p-3">
@@ -457,20 +695,90 @@ function CommentNode({
               </span>
             </div>
             <p className="mt-0.5 whitespace-pre-wrap text-sm">{node.content}</p>
-            <button
-              type="button"
-              onClick={() => onReply(node.id)}
-              className="mt-1 text-xs text-muted-foreground hover:text-primary"
-            >
-              Reply
-            </button>
+
+            {/* Reaction chips */}
+            {reactionEntries.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {reactionEntries.map(([emoji, ids]) => {
+                  const mine = currentUserId ? ids.includes(currentUserId) : false;
+                  return (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => onReact(node, emoji)}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors",
+                        mine
+                          ? "border-primary/60 bg-primary/10 text-foreground"
+                          : "border-border bg-surface-elevated text-muted-foreground hover:border-primary/40",
+                      )}
+                    >
+                      <span>{emoji}</span>
+                      <span>{ids.length}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="mt-1 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => onReply(node.id)}
+                className="text-xs text-muted-foreground hover:text-primary"
+              >
+                Reply
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPicker((v) => !v)}
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+              >
+                <SmilePlus size={12} /> React
+              </button>
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(node.id)}
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 size={12} /> Delete
+                </button>
+              )}
+            </div>
+
+            {showPicker && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {REACTION_EMOJIS.map((e) => (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => {
+                      onReact(node, e);
+                      setShowPicker(false);
+                    }}
+                    className="rounded-md border border-border bg-background px-2 py-1 text-base hover:scale-110"
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
       {node.replies.length > 0 && (
         <div className="mt-2 space-y-2">
           {node.replies.map((r) => (
-            <CommentNode key={r.id} node={r} depth={depth + 1} onReply={onReply} />
+            <CommentNode
+              key={r.id}
+              node={r}
+              depth={depth + 1}
+              currentUserId={currentUserId}
+              onReply={onReply}
+              onReact={onReact}
+              onDelete={onDelete}
+            />
           ))}
         </div>
       )}
