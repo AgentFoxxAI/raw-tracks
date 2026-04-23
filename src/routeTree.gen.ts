@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UploadRouteImport } from './routes/upload'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as FeedRouteImport } from './routes/feed'
 import { Route as DiscoverRouteImport } from './routes/discover'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -27,6 +28,11 @@ const UploadRoute = UploadRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MessagesRoute = MessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeedRoute = FeedRouteImport.update({
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/discover': typeof DiscoverRoute
   '/feed': typeof FeedRoute
+  '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRouteWithChildren
   '/upload': typeof UploadRoute
   '/post/$id': typeof PostIdRoute
@@ -81,6 +88,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/discover': typeof DiscoverRoute
   '/feed': typeof FeedRoute
+  '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRouteWithChildren
   '/upload': typeof UploadRoute
   '/post/$id': typeof PostIdRoute
@@ -93,6 +101,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/discover': typeof DiscoverRoute
   '/feed': typeof FeedRoute
+  '/messages': typeof MessagesRoute
   '/profile': typeof ProfileRouteWithChildren
   '/upload': typeof UploadRoute
   '/post/$id': typeof PostIdRoute
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/discover'
     | '/feed'
+    | '/messages'
     | '/profile'
     | '/upload'
     | '/post/$id'
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/discover'
     | '/feed'
+    | '/messages'
     | '/profile'
     | '/upload'
     | '/post/$id'
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/discover'
     | '/feed'
+    | '/messages'
     | '/profile'
     | '/upload'
     | '/post/$id'
@@ -140,6 +152,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DiscoverRoute: typeof DiscoverRoute
   FeedRoute: typeof FeedRoute
+  MessagesRoute: typeof MessagesRoute
   ProfileRoute: typeof ProfileRouteWithChildren
   UploadRoute: typeof UploadRoute
   PostIdRoute: typeof PostIdRoute
@@ -160,6 +173,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/messages': {
+      id: '/messages'
+      path: '/messages'
+      fullPath: '/messages'
+      preLoaderRoute: typeof MessagesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/feed': {
@@ -230,6 +250,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DiscoverRoute: DiscoverRoute,
   FeedRoute: FeedRoute,
+  MessagesRoute: MessagesRoute,
   ProfileRoute: ProfileRouteWithChildren,
   UploadRoute: UploadRoute,
   PostIdRoute: PostIdRoute,
