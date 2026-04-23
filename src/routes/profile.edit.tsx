@@ -52,6 +52,31 @@ function ProfileEditPage() {
   const updateLink = (idx: number, key: "label" | "url", val: string) =>
     setLinks((p) => p.map((l, i) => (i === idx ? { ...l, [key]: val } : l)));
 
+  const uploadAvatar = async (file: File) => {
+    if (!user) return;
+    setAvatarUploading(true);
+    setErr(null);
+    try {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { contentType: file.type || "image/jpeg", upsert: true });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+      const { error: updErr } = await supabase
+        .from("profiles")
+        .update({ avatar_url: pub.publicUrl })
+        .eq("id", user.id);
+      if (updErr) throw updErr;
+      await refreshProfile();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Avatar upload failed.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   const save = async () => {
     if (!user) return;
     setSaving(true);
@@ -95,6 +120,40 @@ function ProfileEditPage() {
       </div>
 
       <div className="space-y-5">
+        <Field label="Avatar">
+          <div className="flex items-center gap-4">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-primary text-2xl font-black text-primary-foreground">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                (displayName || "?").slice(0, 1).toUpperCase()
+              )}
+            </div>
+            <div>
+              <button
+                type="button"
+                disabled={avatarUploading}
+                onClick={() => fileRef.current?.click()}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm font-semibold hover:border-primary/50 disabled:opacity-50"
+              >
+                <Camera size={14} />
+                {avatarUploading ? "Uploading…" : "Change photo"}
+              </button>
+              <p className="label-tape mt-1 text-muted-foreground">JPG / PNG, square works best</p>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void uploadAvatar(f);
+                }}
+              />
+            </div>
+          </div>
+        </Field>
+
         <Field label="Display name">
           <input
             value={displayName}
