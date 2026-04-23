@@ -1,11 +1,14 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Play, Volume2, VolumeX, Lock, Users } from "lucide-react";
+import { Play, Volume2, VolumeX, Lock, Users, MoreHorizontal, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ActivePlayer } from "@/lib/active-player";
+import { useAuth } from "@/lib/auth-context";
 import { Waveform } from "./Waveform";
 import { InstrumentBadge } from "./InstrumentBadge";
 import { SocialActions } from "./SocialActions";
+import { TimestampReactionsBar } from "./TimestampReactionsBar";
+import { mockTimestampReactionsFor } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/instrument";
 
@@ -41,6 +44,7 @@ const LONG_PRESS_MS = 600;
 
 export function PostCard({ post, autoplayOnVisible = true }: Props) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -51,6 +55,19 @@ export function PostCard({ post, autoplayOnVisible = true }: Props) {
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [currentSeconds, setCurrentSeconds] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleted, setDeleted] = useState(false);
+
+  const isOwner = user?.id === post.user_id;
+  const reactions = mockTimestampReactionsFor(post.duration_seconds);
+  const dur = post.duration_seconds ?? 60;
+
+  const handleDelete = async () => {
+    if (!confirm("Delete this post?")) return;
+    await supabase.from("posts").delete().eq("id", post.id);
+    setDeleted(true);
+  };
 
   const mediaEl = (): HTMLMediaElement | null =>
     post.media_type === "video" ? videoRef.current : audioRef.current;
@@ -123,10 +140,12 @@ export function PostCard({ post, autoplayOnVisible = true }: Props) {
     if (!el) return;
     const onTime = () => {
       if (el.duration > 0) setProgress(el.currentTime / el.duration);
+      setCurrentSeconds(el.currentTime);
     };
     const onEnd = () => {
       setPlaying(false);
       setProgress(0);
+      setCurrentSeconds(0);
       el.currentTime = 0;
     };
     el.addEventListener("timeupdate", onTime);

@@ -21,6 +21,7 @@ export type Database = {
           id: string
           parent_comment_id: string | null
           post_id: string
+          reactions: Json
           updated_at: string
           user_id: string
         }
@@ -30,6 +31,7 @@ export type Database = {
           id?: string
           parent_comment_id?: string | null
           post_id: string
+          reactions?: Json
           updated_at?: string
           user_id: string
         }
@@ -39,6 +41,7 @@ export type Database = {
           id?: string
           parent_comment_id?: string | null
           post_id?: string
+          reactions?: Json
           updated_at?: string
           user_id?: string
         }
@@ -182,9 +185,40 @@ export type Database = {
           },
         ]
       }
+      post_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          note: string | null
+          post_id: string
+          timestamp_seconds: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          note?: string | null
+          post_id: string
+          timestamp_seconds?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          note?: string | null
+          post_id?: string
+          timestamp_seconds?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       posts: {
         Row: {
           audio_url: string
+          comments_enabled: boolean
           created_at: string
           description: string | null
           duration_seconds: number | null
@@ -204,6 +238,7 @@ export type Database = {
         }
         Insert: {
           audio_url: string
+          comments_enabled?: boolean
           created_at?: string
           description?: string | null
           duration_seconds?: number | null
@@ -223,6 +258,7 @@ export type Database = {
         }
         Update: {
           audio_url?: string
+          comments_enabled?: boolean
           created_at?: string
           description?: string | null
           duration_seconds?: number | null

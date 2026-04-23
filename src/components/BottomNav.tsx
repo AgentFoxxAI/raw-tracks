@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, Plus, User, Compass } from "lucide-react";
+import { Home, Plus, User, Compass, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function BottomNav() {
@@ -25,6 +25,12 @@ export function BottomNav() {
       label: "Post",
       match: (p: string) => p === "/upload",
       primary: true,
+    },
+    {
+      to: "/messages" as const,
+      icon: Inbox,
+      label: "Inbox",
+      match: (p: string) => p.startsWith("/messages"),
     },
     {
       to: "/profile" as const,
