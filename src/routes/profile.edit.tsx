@@ -1,10 +1,10 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
-import { Plus, X, Camera } from "lucide-react";
-import { toast } from "sonner";
+import { useEffect, useState } from "react";
+import { Plus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { AppShell } from "@/components/AppShell";
+import { AvatarUploader } from "@/components/AvatarUploader";
 import { INSTRUMENT_TAGS } from "@/lib/instrument";
 
 export const Route = createFileRoute("/profile/edit")({
@@ -28,8 +28,6 @@ function ProfileEditPage() {
   const [collabStatus, setCollabStatus] = useState<"open" | "selective" | "closed">("closed");
   const [instruments, setInstruments] = useState<string[]>([]);
   const [links, setLinks] = useState<Array<{ label: string; url: string }>>([]);
-  const [avatarUploading, setAvatarUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement | null>(null);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
