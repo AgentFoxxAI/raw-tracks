@@ -341,6 +341,18 @@ function PostDetail() {
     return [...mocks, ...real];
   }, [reactions, post?.duration_seconds]);
 
+  // Demo: derive deterministic auto-detected metadata from post id (must be before any early returns)
+  const seed = useMemo(() => {
+    if (!post) return 1;
+    let h = 0;
+    for (let i = 0; i < post.id.length; i++) h = (h * 31 + post.id.charCodeAt(i)) >>> 0;
+    return (h % 9999) + 1;
+  }, [post]);
+  const metadata = useMemo(
+    () => mockMetadataFromSeed(seed, post?.duration_seconds ?? null),
+    [seed, post?.duration_seconds],
+  );
+
   if (loading) {
     return (
       <AppShell>
@@ -368,13 +380,6 @@ function PostDetail() {
   const reactionsOnly = !post.comments_enabled;
   const tree = buildTree(comments);
   const dur = post.duration_seconds ?? 60;
-  // Demo: derive deterministic auto-detected metadata from post id
-  const seed = useMemo(() => {
-    let h = 0;
-    for (let i = 0; i < post.id.length; i++) h = (h * 31 + post.id.charCodeAt(i)) >>> 0;
-    return (h % 9999) + 1;
-  }, [post.id]);
-  const metadata = useMemo(() => mockMetadataFromSeed(seed, post.duration_seconds), [seed, post.duration_seconds]);
 
   return (
     <AppShell>
