@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Play, Pause, Heart, MessageCircle, Repeat2, Share, Sparkles, MoreHorizontal } from "lucide-react";
 import { Waveform } from "./Waveform";
 import { InstrumentBadge } from "./InstrumentBadge";
+import { MetadataPanel } from "./MetadataPanel";
 import { fakeWaveform, type MockFeedPost } from "@/lib/mock-data";
 import { formatDuration } from "@/lib/instrument";
+import { mockMetadataFromSeed } from "@/lib/audio-analysis";
 import { cn } from "@/lib/utils";
 
 interface Props {
