@@ -139,6 +139,7 @@ function FeedPage() {
       if (tab === "for-you") {
         // Boost real followed users to top, then chronological merge with mocks
         const sortedReal = [...realItems].sort((a, b) => {
+          if (a.kind !== "real" || b.kind !== "real") return 0;
           const aF = followSet.has(a.post.user_id) ? 1 : 0;
           const bF = followSet.has(b.post.user_id) ? 1 : 0;
           if (aF !== bF) return bF - aF;
