@@ -20,6 +20,10 @@ export function MockFeedCard({ post }: Props) {
 
   const wave = fakeWaveform(post.waveform_seed);
   const initials = (post.artist.display_name ?? "?").slice(0, 1).toUpperCase();
+  const metadata = useMemo(
+    () => (post.kind === "audio" ? mockMetadataFromSeed(post.waveform_seed || 1, post.duration_seconds) : null),
+    [post.waveform_seed, post.duration_seconds, post.kind],
+  );
 
   const toggleLike = () => {
     setLiked((v) => {
