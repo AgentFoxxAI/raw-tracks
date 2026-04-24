@@ -501,6 +501,11 @@ function PostDetail() {
           )}
         </div>
 
+        {/* Auto-detected musical metadata (BPM, key, time sig, expandable advanced) */}
+        <div className="mt-3">
+          <MetadataPanel metadata={metadata} variant="full" autoDetected />
+        </div>
+
         {/* Live timestamped reactions strip */}
         <div className="mt-3">
           <TimestampReactionsBar
