@@ -4,6 +4,7 @@ import { LogOut, Pencil, MapPin, Sparkles, Link as LinkIcon } from "lucide-react
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { AppShell } from "@/components/AppShell";
+import { AvatarUploader } from "@/components/AvatarUploader";
 import { PostCard, type PostCardData } from "@/components/PostCard";
 import { cn } from "@/lib/utils";
 
@@ -140,13 +141,13 @@ function ProfilePage() {
       {/* Identity card */}
       <div className="rounded-2xl border border-border bg-surface p-5">
         <div className="flex items-start gap-4">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-3xl font-black text-primary-foreground">
-            {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-            ) : (
-              initials
-            )}
-          </div>
+          <AvatarUploader
+            avatarUrl={profile.avatar_url}
+            fallback={initials}
+            size={80}
+            variant="ring"
+            className="shrink-0"
+          />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-2xl font-black leading-tight">{displayName}</h1>
             <p className="truncate text-sm text-muted-foreground">@{profile.username ?? "—"}</p>
