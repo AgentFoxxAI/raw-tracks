@@ -280,6 +280,7 @@ function UploadPage() {
                   setFile(null);
                   setWaveform(null);
                   setPosterBlob(null);
+                  setMetadata(null);
                   if (previewUrl) URL.revokeObjectURL(previewUrl);
                   setPreviewUrl(null);
                 }}
@@ -305,6 +306,11 @@ function UploadPage() {
                 <Waveform data={waveform} height={56} />
               )}
             </div>
+            {metadata && !analyzing && (
+              <div className="mt-3">
+                <MetadataPanel metadata={metadata} variant="full" autoDetected />
+              </div>
+            )}
           </div>
 
           <Field label="Title">
