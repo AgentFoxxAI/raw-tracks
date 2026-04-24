@@ -368,6 +368,13 @@ function PostDetail() {
   const reactionsOnly = !post.comments_enabled;
   const tree = buildTree(comments);
   const dur = post.duration_seconds ?? 60;
+  // Demo: derive deterministic auto-detected metadata from post id
+  const seed = useMemo(() => {
+    let h = 0;
+    for (let i = 0; i < post.id.length; i++) h = (h * 31 + post.id.charCodeAt(i)) >>> 0;
+    return (h % 9999) + 1;
+  }, [post.id]);
+  const metadata = useMemo(() => mockMetadataFromSeed(seed, post.duration_seconds), [seed, post.duration_seconds]);
 
   return (
     <AppShell>
