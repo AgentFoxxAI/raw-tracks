@@ -8,8 +8,10 @@ import { Waveform } from "@/components/Waveform";
 import { InstrumentBadge } from "@/components/InstrumentBadge";
 import { SocialActions } from "@/components/SocialActions";
 import { TimestampReactionsBar } from "@/components/TimestampReactionsBar";
+import { MetadataPanel } from "@/components/MetadataPanel";
 import { ActivePlayer } from "@/lib/active-player";
 import { formatDuration } from "@/lib/instrument";
+import { mockMetadataFromSeed } from "@/lib/audio-analysis";
 import {
   REACTION_EMOJIS,
   mockTimestampReactionsFor,
@@ -339,6 +341,18 @@ function PostDetail() {
     return [...mocks, ...real];
   }, [reactions, post?.duration_seconds]);
 
+  // Demo: derive deterministic auto-detected metadata from post id (must be before any early returns)
+  const seed = useMemo(() => {
+    if (!post) return 1;
+    let h = 0;
+    for (let i = 0; i < post.id.length; i++) h = (h * 31 + post.id.charCodeAt(i)) >>> 0;
+    return (h % 9999) + 1;
+  }, [post]);
+  const metadata = useMemo(
+    () => mockMetadataFromSeed(seed, post?.duration_seconds ?? null),
+    [seed, post?.duration_seconds],
+  );
+
   if (loading) {
     return (
       <AppShell>
@@ -485,6 +499,11 @@ function PostDetail() {
               <audio ref={audioRef} src={post.media_url} preload="metadata" />
             </div>
           )}
+        </div>
+
+        {/* Auto-detected musical metadata (BPM, key, time sig, expandable advanced) */}
+        <div className="mt-3">
+          <MetadataPanel metadata={metadata} variant="full" autoDetected />
         </div>
 
         {/* Live timestamped reactions strip */}

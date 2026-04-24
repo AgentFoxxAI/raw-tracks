@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Play, Pause, Heart, MessageCircle, Repeat2, Share, Sparkles, MoreHorizontal } from "lucide-react";
 import { Waveform } from "./Waveform";
 import { InstrumentBadge } from "./InstrumentBadge";
+import { MetadataPanel } from "./MetadataPanel";
 import { fakeWaveform, type MockFeedPost } from "@/lib/mock-data";
 import { formatDuration } from "@/lib/instrument";
+import { mockMetadataFromSeed } from "@/lib/audio-analysis";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -18,6 +20,10 @@ export function MockFeedCard({ post }: Props) {
 
   const wave = fakeWaveform(post.waveform_seed);
   const initials = (post.artist.display_name ?? "?").slice(0, 1).toUpperCase();
+  const metadata = useMemo(
+    () => (post.kind === "audio" ? mockMetadataFromSeed(post.waveform_seed || 1, post.duration_seconds) : null),
+    [post.waveform_seed, post.duration_seconds, post.kind],
+  );
 
   const toggleLike = () => {
     setLiked((v) => {
@@ -95,6 +101,11 @@ export function MockFeedCard({ post }: Props) {
               </div>
             </div>
           </div>
+          {metadata && (
+            <div className="border-t border-border p-2">
+              <MetadataPanel metadata={metadata} variant="full" autoDetected />
+            </div>
+          )}
         </div>
       )}
 
