@@ -8,8 +8,10 @@ import { Waveform } from "@/components/Waveform";
 import { InstrumentBadge } from "@/components/InstrumentBadge";
 import { SocialActions } from "@/components/SocialActions";
 import { TimestampReactionsBar } from "@/components/TimestampReactionsBar";
+import { MetadataPanel } from "@/components/MetadataPanel";
 import { ActivePlayer } from "@/lib/active-player";
 import { formatDuration } from "@/lib/instrument";
+import { mockMetadataFromSeed } from "@/lib/audio-analysis";
 import {
   REACTION_EMOJIS,
   mockTimestampReactionsFor,
