@@ -296,3 +296,193 @@ export function mockAISearchAnswer(query: string): { summary: string; results: A
 }
 
 export const REACTION_EMOJIS = ["🔥", "💜", "🤝", "🥁", "✨", "👏", "😮"];
+
+/** Mock posts for the social feed. Mix of audio and text-only updates from suggested + followed artists. */
+export interface MockFeedPost {
+  id: string;
+  artist: MockArtist;
+  /** "audio" cards show a fake waveform + play button. "text" cards are status updates. */
+  kind: "audio" | "text";
+  title: string;
+  description: string;
+  duration_seconds: number | null;
+  instrument_tag: string;
+  created_at: string;
+  play_count: number;
+  like_count: number;
+  comment_count: number;
+  repost_count: number;
+  /** Reason this is in the feed — drives the X-style header label. */
+  reason: "following" | "suggested" | "liked-by-following";
+  liked_by?: MockArtist;
+  waveform_seed: number;
+}
+
+function hoursAgo(h: number): string {
+  return new Date(Date.now() - h * 3600 * 1000).toISOString();
+}
+
+export const MOCK_FEED_POSTS: MockFeedPost[] = [
+  {
+    id: "feed-1",
+    artist: MOCK_ARTISTS[0], // Lo Ferraro
+    kind: "audio",
+    title: "mid-day fog (riff)",
+    description: "found this in a voice memo from october. open tuning, half awake. might build it out 🌫️",
+    duration_seconds: 42,
+    instrument_tag: "guitar",
+    created_at: hoursAgo(0.5),
+    play_count: 1284,
+    like_count: 312,
+    comment_count: 18,
+    repost_count: 4,
+    reason: "following",
+    waveform_seed: 1,
+  },
+  {
+    id: "feed-2",
+    artist: MOCK_ARTISTS[2], // kazu
+    kind: "audio",
+    title: "loop B (rough)",
+    description: "92 bpm, half-time. looking for vocals on this one — slide in if you fuck with it",
+    duration_seconds: 31,
+    instrument_tag: "drum machine",
+    created_at: hoursAgo(2),
+    play_count: 4180,
+    like_count: 891,
+    comment_count: 64,
+    repost_count: 22,
+    reason: "following",
+    waveform_seed: 2,
+  },
+  {
+    id: "feed-3",
+    artist: MOCK_ARTISTS[3], // Rae
+    kind: "text",
+    title: "",
+    description:
+      "3 demos sitting on my phone, one of them about my grandma's house. anyone here good with sparse production? 🤍",
+    duration_seconds: null,
+    instrument_tag: "vocals",
+    created_at: hoursAgo(4),
+    play_count: 0,
+    like_count: 142,
+    comment_count: 31,
+    repost_count: 6,
+    reason: "following",
+    waveform_seed: 0,
+  },
+  {
+    id: "feed-4",
+    artist: MOCK_ARTISTS[6], // Tunde
+    kind: "audio",
+    title: "loose pocket #14",
+    description: "drum take. swung hi-hat. record on a phone, mix it like it matters.",
+    duration_seconds: 58,
+    instrument_tag: "drums",
+    created_at: hoursAgo(6),
+    play_count: 2204,
+    like_count: 504,
+    comment_count: 40,
+    repost_count: 12,
+    reason: "liked-by-following",
+    liked_by: MOCK_ARTISTS[2],
+    waveform_seed: 3,
+  },
+  {
+    id: "feed-5",
+    artist: MOCK_ARTISTS[1], // Juniper Grove
+    kind: "audio",
+    title: "porchlight (v3)",
+    description: "rewrote the bridge on the train. think it lives now.",
+    duration_seconds: 78,
+    instrument_tag: "acoustic guitar",
+    created_at: hoursAgo(9),
+    play_count: 6701,
+    like_count: 1120,
+    comment_count: 84,
+    repost_count: 41,
+    reason: "following",
+    waveform_seed: 4,
+  },
+  {
+    id: "feed-6",
+    artist: MOCK_ARTISTS[5], // Danny K
+    kind: "audio",
+    title: "after hours (loop)",
+    description: "modular bed, no quantize. let it run for 6 minutes, this is the best 24 seconds.",
+    duration_seconds: 24,
+    instrument_tag: "modular",
+    created_at: hoursAgo(13),
+    play_count: 9930,
+    like_count: 2104,
+    comment_count: 158,
+    repost_count: 87,
+    reason: "suggested",
+    waveform_seed: 5,
+  },
+  {
+    id: "feed-7",
+    artist: MOCK_ARTISTS[4], // Marisol
+    kind: "text",
+    title: "",
+    description:
+      "PSA: I'll do one free bass take this week for anyone in the feed. drop the BPM + key in replies 🎸",
+    duration_seconds: null,
+    instrument_tag: "bass",
+    created_at: hoursAgo(16),
+    play_count: 0,
+    like_count: 421,
+    comment_count: 96,
+    repost_count: 18,
+    reason: "suggested",
+    waveform_seed: 0,
+  },
+  {
+    id: "feed-8",
+    artist: MOCK_ARTISTS[7], // Sarah A.
+    kind: "audio",
+    title: "90 second song #38",
+    description: "reverb-heavy, no chorus on purpose. trying to write less.",
+    duration_seconds: 89,
+    instrument_tag: "electric guitar",
+    created_at: hoursAgo(22),
+    play_count: 1402,
+    like_count: 287,
+    comment_count: 22,
+    repost_count: 5,
+    reason: "suggested",
+    waveform_seed: 6,
+  },
+  {
+    id: "feed-9",
+    artist: MOCK_ARTISTS[0], // Lo Ferraro
+    kind: "audio",
+    title: "rhodes idea over kazu loop",
+    description: "took kazu's loop B and threw a rhodes on top. sending him the stem tonight 🤝",
+    duration_seconds: 37,
+    instrument_tag: "keys",
+    created_at: hoursAgo(28),
+    play_count: 814,
+    like_count: 198,
+    comment_count: 14,
+    repost_count: 9,
+    reason: "following",
+    waveform_seed: 7,
+  },
+];
+
+/** Deterministic fake waveform so each mock card gets a stable shape. */
+export function fakeWaveform(seed: number, bars = 56): number[] {
+  if (seed === 0) return [];
+  const out: number[] = [];
+  let s = seed * 9301 + 49297;
+  for (let i = 0; i < bars; i++) {
+    s = (s * 9301 + 49297) % 233280;
+    const r = s / 233280;
+    // Shape: rise, peak in middle, taper
+    const env = Math.sin((i / bars) * Math.PI);
+    out.push(Math.max(0.08, Math.min(1, env * (0.4 + r * 0.7))));
+  }
+  return out;
+}

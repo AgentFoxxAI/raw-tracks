@@ -1,6 +1,7 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Plus, X, Camera } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { AppShell } from "@/components/AppShell";
@@ -54,24 +55,33 @@ function ProfileEditPage() {
 
   const uploadAvatar = async (file: File) => {
     if (!user) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image too large", { description: "Max 5MB. Try compressing it." });
+      return;
+    }
     setAvatarUploading(true);
     setErr(null);
     try {
-      const ext = file.name.split(".").pop() ?? "jpg";
+      const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
       const path = `${user.id}/avatar-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("avatars")
         .upload(path, file, { contentType: file.type || "image/jpeg", upsert: true });
       if (upErr) throw upErr;
       const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
+      // Cache-bust so browser/CDN serves the new image immediately
+      const finalUrl = `${pub.publicUrl}?v=${Date.now()}`;
       const { error: updErr } = await supabase
         .from("profiles")
-        .update({ avatar_url: pub.publicUrl })
+        .update({ avatar_url: finalUrl })
         .eq("id", user.id);
       if (updErr) throw updErr;
       await refreshProfile();
+      toast.success("Avatar updated");
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Avatar upload failed.");
+      const msg = e instanceof Error ? e.message : "Avatar upload failed.";
+      setErr(msg);
+      toast.error("Avatar upload failed", { description: msg });
     } finally {
       setAvatarUploading(false);
     }
