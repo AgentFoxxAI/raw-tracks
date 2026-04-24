@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context";
 import { AppShell } from "@/components/AppShell";
 import { TermsModal } from "@/components/TermsModal";
 import { Waveform } from "@/components/Waveform";
+import { MetadataPanel } from "@/components/MetadataPanel";
 import {
   INSTRUMENT_TAGS,
   type InstrumentTag,
@@ -14,6 +15,7 @@ import {
   generateWaveformData,
   suggestInstrumentFromBuffer,
 } from "@/lib/instrument";
+import { analyzeAudio, type AudioMetadata } from "@/lib/audio-analysis";
 
 export const Route = createFileRoute("/upload")({
   component: UploadPage,
@@ -45,6 +47,7 @@ function UploadPage() {
   const [posterBlob, setPosterBlob] = useState<Blob | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [metadata, setMetadata] = useState<AudioMetadata | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -90,6 +93,12 @@ function UploadPage() {
       setDuration(buffer.duration);
       setWaveform(generateWaveformData(buffer));
       setInstrument(suggestInstrumentFromBuffer(buffer));
+      // Auto BPM, key, time signature, sections
+      try {
+        setMetadata(analyzeAudio(buffer));
+      } catch {
+        setMetadata(null);
+      }
 
       if (isVideo && buffer.duration > MAX_VIDEO_SECONDS) {
         setErr(`Video is ${Math.round(buffer.duration)}s — keep it under ${MAX_VIDEO_SECONDS}s.`);
