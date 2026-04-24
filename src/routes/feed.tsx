@@ -1,13 +1,19 @@
 import { createFileRoute, redirect, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowDown, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { AppShell } from "@/components/AppShell";
 import { PostCard, type PostCardData } from "@/components/PostCard";
+import { MockFeedCard } from "@/components/MockFeedCard";
 import { INSTRUMENT_TAGS } from "@/lib/instrument";
+import { MOCK_FEED_POSTS, type MockFeedPost } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 type Tab = "for-you" | "following";
+type FeedItem =
+  | { kind: "real"; post: PostCardData; createdAt: number }
+  | { kind: "mock"; post: MockFeedPost; createdAt: number };
 
 export const Route = createFileRoute("/feed")({
   component: FeedPage,
@@ -35,26 +41,33 @@ interface RawPost {
   created_at: string;
 }
 
+const PULL_TRIGGER = 70; // px to trigger refresh
+const PULL_MAX = 110;
+
 function FeedPage() {
   const { user } = useAuth();
-  const [posts, setPosts] = useState<PostCardData[]>([]);
+  const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("for-you");
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Pull-to-refresh state
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const pullStartY = useRef<number | null>(null);
+  const [pullDistance, setPullDistance] = useState(0);
 
   useEffect(() => {
     if (!user) return;
     let active = true;
     setLoading(true);
     (async () => {
-      let followingIds: string[] = [];
-      if (tab === "following" || true) {
-        const { data: f } = await supabase
-          .from("follows")
-          .select("following_id")
-          .eq("follower_id", user.id);
-        followingIds = (f ?? []).map((r) => r.following_id);
-      }
+      const { data: f } = await supabase
+        .from("follows")
+        .select("following_id")
+        .eq("follower_id", user.id);
+      const followingIds: string[] = (f ?? []).map((r) => r.following_id);
 
       let q = supabase
         .from("posts")
@@ -68,7 +81,13 @@ function FeedPage() {
       if (tab === "following") {
         if (followingIds.length === 0) {
           if (!active) return;
-          setPosts([]);
+          // Following feed gets mocks too — they ARE the suggestion engine in demo
+          const mockOnly: FeedItem[] = filteredMocks(filter).map((m) => ({
+            kind: "mock",
+            post: m,
+            createdAt: new Date(m.created_at).getTime(),
+          }));
+          setItems(mockOnly);
           setLoading(false);
           return;
         }
@@ -76,100 +95,206 @@ function FeedPage() {
       }
       const { data, error } = await q;
       if (!active) return;
-      if (error || !data) {
-        setPosts([]);
-        setLoading(false);
-        return;
-      }
-      const raw = data as unknown as RawPost[];
 
-      // For "For you": rank — followed users first, then chronological
-      const followSet = new Set(followingIds);
-      const ranked =
-        tab === "for-you"
-          ? [...raw].sort((a, b) => {
-              const aF = followSet.has(a.user_id) ? 1 : 0;
-              const bF = followSet.has(b.user_id) ? 1 : 0;
-              if (aF !== bF) return bF - aF;
-              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-            })
-          : raw;
+      const rawPosts: RawPost[] = error || !data ? [] : (data as unknown as RawPost[]);
 
-      const userIds = Array.from(new Set(ranked.map((o) => o.user_id)));
+      const userIds = Array.from(new Set(rawPosts.map((o) => o.user_id)));
       const { data: profs } = await supabase
         .from("profiles")
         .select("id,username,display_name,avatar_url")
         .in("id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]);
       const profMap = new Map((profs ?? []).map((p) => [p.id, p]));
 
-      const merged: PostCardData[] = ranked.map((o) => ({
-        id: o.id,
-        user_id: o.user_id,
-        title: o.title,
-        description: o.description,
-        media_type: (o.media_type as "audio" | "video") ?? "audio",
-        media_url: o.media_url,
-        thumbnail_url: o.thumbnail_url,
-        duration_seconds: o.duration_seconds,
-        instrument_tag: o.instrument_tag,
-        visibility: o.visibility,
-        waveform_data: (o.waveform_data as number[] | null) ?? null,
-        play_count: o.play_count,
-        created_at: o.created_at,
-        profile: profMap.get(o.user_id) ?? null,
+      const followSet = new Set(followingIds);
+
+      const realItems: FeedItem[] = rawPosts.map((o) => ({
+        kind: "real" as const,
+        post: {
+          id: o.id,
+          user_id: o.user_id,
+          title: o.title,
+          description: o.description,
+          media_type: (o.media_type as "audio" | "video") ?? "audio",
+          media_url: o.media_url,
+          thumbnail_url: o.thumbnail_url,
+          duration_seconds: o.duration_seconds,
+          instrument_tag: o.instrument_tag,
+          visibility: o.visibility,
+          waveform_data: (o.waveform_data as number[] | null) ?? null,
+          play_count: o.play_count,
+          created_at: o.created_at,
+          profile: profMap.get(o.user_id) ?? null,
+        },
+        createdAt: new Date(o.created_at).getTime(),
       }));
-      setPosts(merged);
+
+      const mockItems: FeedItem[] = filteredMocks(filter).map((m) => ({
+        kind: "mock" as const,
+        post: m,
+        createdAt: new Date(m.created_at).getTime(),
+      }));
+
+      // Merge: real first by recency-with-follow boost, then weave mocks in
+      let merged: FeedItem[];
+      if (tab === "for-you") {
+        // Boost real followed users to top, then chronological merge with mocks
+        const sortedReal = [...realItems].sort((a, b) => {
+          const aF = followSet.has(a.post.user_id) ? 1 : 0;
+          const bF = followSet.has(b.post.user_id) ? 1 : 0;
+          if (aF !== bF) return bF - aF;
+          return b.createdAt - a.createdAt;
+        });
+        merged = interleave(sortedReal, mockItems);
+      } else {
+        // Following: real followed posts + mock posts as "people you might follow"
+        merged = [...realItems, ...mockItems].sort((a, b) => b.createdAt - a.createdAt);
+      }
+
+      setItems(merged);
       setLoading(false);
     })();
     return () => {
       active = false;
     };
-  }, [filter, tab, user]);
+  }, [filter, tab, user, refreshKey]);
+
+  // Pull-to-refresh handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.scrollY > 0) return;
+    pullStartY.current = e.touches[0].clientY;
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (pullStartY.current === null) return;
+    const delta = e.touches[0].clientY - pullStartY.current;
+    if (delta <= 0) {
+      setPullDistance(0);
+      return;
+    }
+    // Apply resistance
+    const resisted = Math.min(PULL_MAX, delta * 0.5);
+    setPullDistance(resisted);
+  };
+  const handleTouchEnd = () => {
+    if (pullDistance >= PULL_TRIGGER) {
+      doRefresh();
+    }
+    pullStartY.current = null;
+    setPullDistance(0);
+  };
+
+  const doRefresh = async () => {
+    setRefreshing(true);
+    setRefreshKey((k) => k + 1);
+    // Allow refresh effect a beat to feel real
+    setTimeout(() => setRefreshing(false), 700);
+  };
+
+  const triggered = pullDistance >= PULL_TRIGGER;
 
   return (
     <AppShell>
-      {/* Tabs */}
-      <div className="-mx-4 mb-3 border-b border-border">
-        <div className="mx-auto flex max-w-2xl">
-          <TabBtn active={tab === "for-you"} onClick={() => setTab("for-you")}>
-            For you
-          </TabBtn>
-          <TabBtn active={tab === "following"} onClick={() => setTab("following")}>
-            Following
-          </TabBtn>
+      <div
+        ref={scrollContainerRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Pull-to-refresh indicator */}
+        <div
+          className="pointer-events-none -mt-2 flex items-center justify-center overflow-hidden text-muted-foreground transition-[height] duration-150"
+          style={{ height: `${refreshing ? 36 : pullDistance}px` }}
+        >
+          {refreshing ? (
+            <Loader2 size={18} className="animate-spin text-primary" />
+          ) : pullDistance > 0 ? (
+            <ArrowDown
+              size={18}
+              className={cn("transition-transform", triggered && "rotate-180 text-primary")}
+            />
+          ) : null}
         </div>
-      </div>
 
-      <div className="-mx-4 mb-4 overflow-x-auto px-4">
-        <div className="flex gap-2">
-          <FilterPill active={filter === null} onClick={() => setFilter(null)}>
-            All
-          </FilterPill>
-          {INSTRUMENT_TAGS.map((t) => (
-            <FilterPill key={t} active={filter === t} onClick={() => setFilter(t)}>
-              {t}
+        {/* Tabs */}
+        <div className="-mx-4 mb-3 border-b border-border">
+          <div className="mx-auto flex max-w-2xl">
+            <TabBtn active={tab === "for-you"} onClick={() => setTab("for-you")}>
+              For you
+            </TabBtn>
+            <TabBtn active={tab === "following"} onClick={() => setTab("following")}>
+              Following
+            </TabBtn>
+          </div>
+        </div>
+
+        <div className="-mx-4 mb-4 overflow-x-auto px-4">
+          <div className="flex gap-2">
+            <FilterPill active={filter === null} onClick={() => setFilter(null)}>
+              All
             </FilterPill>
-          ))}
+            {INSTRUMENT_TAGS.map((t) => (
+              <FilterPill key={t} active={filter === t} onClick={() => setFilter(t)}>
+                {t}
+              </FilterPill>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-64 animate-pulse rounded-xl bg-surface" />
-          ))}
+        {/* Desktop refresh button (no touch) */}
+        <div className="mb-3 flex justify-end md:flex">
+          <button
+            onClick={doRefresh}
+            disabled={refreshing}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            {refreshing ? <Loader2 size={12} className="animate-spin" /> : <ArrowDown size={12} />}
+            {refreshing ? "Refreshing" : "Refresh"}
+          </button>
         </div>
-      ) : posts.length === 0 ? (
-        <EmptyFeed tab={tab} />
-      ) : (
-        <div className="space-y-3">
-          {posts.map((o) => (
-            <PostCard key={o.id} post={o} />
-          ))}
-        </div>
-      )}
+
+        {loading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-64 animate-pulse rounded-xl bg-surface" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <EmptyFeed tab={tab} />
+        ) : (
+          <div className="space-y-3">
+            {items.map((it) =>
+              it.kind === "real" ? (
+                <PostCard key={it.post.id} post={it.post} />
+              ) : (
+                <MockFeedCard key={it.post.id} post={it.post} />
+              ),
+            )}
+          </div>
+        )}
+      </div>
     </AppShell>
   );
+}
+
+/** Weave mocks into real items so the feed feels populated even before the user follows anyone. */
+function interleave(real: FeedItem[], mocks: FeedItem[]): FeedItem[] {
+  if (real.length === 0) return mocks;
+  if (mocks.length === 0) return real;
+  const out: FeedItem[] = [];
+  const insertEvery = Math.max(2, Math.ceil(real.length / mocks.length));
+  let mIdx = 0;
+  for (let i = 0; i < real.length; i++) {
+    out.push(real[i]);
+    if ((i + 1) % insertEvery === 0 && mIdx < mocks.length) {
+      out.push(mocks[mIdx++]);
+    }
+  }
+  while (mIdx < mocks.length) out.push(mocks[mIdx++]);
+  return out;
+}
+
+function filteredMocks(filter: string | null): MockFeedPost[] {
+  if (!filter) return MOCK_FEED_POSTS;
+  return MOCK_FEED_POSTS.filter((m) => m.instrument_tag === filter);
 }
 
 function TabBtn({
