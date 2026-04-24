@@ -101,6 +101,11 @@ export function MockFeedCard({ post }: Props) {
               </div>
             </div>
           </div>
+          {metadata && (
+            <div className="border-t border-border p-2">
+              <MetadataPanel metadata={metadata} variant="full" autoDetected />
+            </div>
+          )}
         </div>
       )}
 
