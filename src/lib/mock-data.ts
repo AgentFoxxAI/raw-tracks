@@ -4,6 +4,15 @@
  * requiring real users to sign up.
  */
 
+import avatarLo from "@/assets/avatars/lo.jpg";
+import avatarJuniper from "@/assets/avatars/juniper.jpg";
+import avatarKazu from "@/assets/avatars/kazu.jpg";
+import avatarRae from "@/assets/avatars/rae.jpg";
+import avatarMarisol from "@/assets/avatars/marisol.jpg";
+import avatarDanny from "@/assets/avatars/danny.jpg";
+import avatarTunde from "@/assets/avatars/tunde.jpg";
+import avatarSarah from "@/assets/avatars/sarah.jpg";
+
 export interface MockArtist {
   id: string;
   username: string;
