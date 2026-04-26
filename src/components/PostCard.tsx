@@ -231,6 +231,8 @@ export function PostCard({ post, autoplayOnVisible = true, onDeleted }: Props) {
   const displayName = post.profile?.display_name ?? username;
   const initials = (displayName ?? "?").slice(0, 1).toUpperCase();
 
+  if (deleted) return null;
+
   return (
     <article
       ref={containerRef}
