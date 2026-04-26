@@ -38,11 +38,13 @@ interface Props {
   post: PostCardData;
   /** When true, autoplays when scrolled into view (feed). When false, requires tap (detail). */
   autoplayOnVisible?: boolean;
+  /** Called after the post is successfully deleted. */
+  onDeleted?: (id: string) => void;
 }
 
 const LONG_PRESS_MS = 600;
 
-export function PostCard({ post, autoplayOnVisible = true }: Props) {
+export function PostCard({ post, autoplayOnVisible = true, onDeleted }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -58,15 +60,31 @@ export function PostCard({ post, autoplayOnVisible = true }: Props) {
   const [currentSeconds, setCurrentSeconds] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleted, setDeleted] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const isOwner = user?.id === post.user_id;
   const reactions = mockTimestampReactionsFor(post.duration_seconds);
   const dur = post.duration_seconds ?? 60;
 
   const handleDelete = async () => {
-    if (!confirm("Delete this post?")) return;
-    await supabase.from("posts").delete().eq("id", post.id);
+    if (deleting) return;
+    if (!confirm("Delete this post? This cannot be undone.")) return;
+    setDeleting(true);
+    setMenuOpen(false);
+    // Stop any active playback before removing
+    const el = mediaEl();
+    if (el) {
+      el.pause();
+      el.currentTime = 0;
+    }
+    const { error } = await supabase.from("posts").delete().eq("id", post.id);
+    if (error) {
+      setDeleting(false);
+      alert(`Failed to delete: ${error.message}`);
+      return;
+    }
     setDeleted(true);
+    onDeleted?.(post.id);
   };
 
   const mediaEl = (): HTMLMediaElement | null =>
@@ -213,6 +231,8 @@ export function PostCard({ post, autoplayOnVisible = true }: Props) {
   const displayName = post.profile?.display_name ?? username;
   const initials = (displayName ?? "?").slice(0, 1).toUpperCase();
 
+  if (deleted) return null;
+
   return (
     <article
       ref={containerRef}
@@ -254,6 +274,50 @@ export function PostCard({ post, autoplayOnVisible = true }: Props) {
             {post.title}
           </button>
         </div>
+        {isOwner && (
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen((v) => !v);
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-surface-elevated hover:text-foreground"
+              aria-label="Post options"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+            >
+              <MoreHorizontal size={18} />
+            </button>
+            {menuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setMenuOpen(false)}
+                  aria-hidden
+                />
+                <div
+                  role="menu"
+                  className="absolute right-0 top-9 z-20 w-44 overflow-hidden rounded-md border border-border bg-surface-elevated shadow-lg"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleDelete();
+                    }}
+                    disabled={deleting}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                  >
+                    <Trash2 size={14} />
+                    {deleting ? "Deleting…" : "Delete post"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Media */}
