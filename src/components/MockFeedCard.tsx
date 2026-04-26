@@ -53,9 +53,18 @@ export function MockFeedCard({ post }: Props) {
 
       {/* Header */}
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-elevated text-sm font-bold">
-          {initials}
-        </div>
+        {post.artist.avatar_url ? (
+          <img
+            src={post.artist.avatar_url}
+            alt={post.artist.display_name}
+            className="h-10 w-10 shrink-0 rounded-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-elevated text-sm font-bold">
+            {initials}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-bold">{post.artist.display_name}</span>
