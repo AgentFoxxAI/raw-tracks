@@ -44,7 +44,7 @@ interface Props {
 
 const LONG_PRESS_MS = 600;
 
-export function PostCard({ post, autoplayOnVisible = true }: Props) {
+export function PostCard({ post, autoplayOnVisible = true, onDeleted }: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -60,15 +60,31 @@ export function PostCard({ post, autoplayOnVisible = true }: Props) {
   const [currentSeconds, setCurrentSeconds] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleted, setDeleted] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const isOwner = user?.id === post.user_id;
   const reactions = mockTimestampReactionsFor(post.duration_seconds);
   const dur = post.duration_seconds ?? 60;
 
   const handleDelete = async () => {
-    if (!confirm("Delete this post?")) return;
-    await supabase.from("posts").delete().eq("id", post.id);
+    if (deleting) return;
+    if (!confirm("Delete this post? This cannot be undone.")) return;
+    setDeleting(true);
+    setMenuOpen(false);
+    // Stop any active playback before removing
+    const el = mediaEl();
+    if (el) {
+      el.pause();
+      el.currentTime = 0;
+    }
+    const { error } = await supabase.from("posts").delete().eq("id", post.id);
+    if (error) {
+      setDeleting(false);
+      alert(`Failed to delete: ${error.message}`);
+      return;
+    }
     setDeleted(true);
+    onDeleted?.(post.id);
   };
 
   const mediaEl = (): HTMLMediaElement | null =>
