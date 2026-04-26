@@ -4,6 +4,15 @@
  * requiring real users to sign up.
  */
 
+import avatarLo from "@/assets/avatars/lo.jpg";
+import avatarJuniper from "@/assets/avatars/juniper.jpg";
+import avatarKazu from "@/assets/avatars/kazu.jpg";
+import avatarRae from "@/assets/avatars/rae.jpg";
+import avatarMarisol from "@/assets/avatars/marisol.jpg";
+import avatarDanny from "@/assets/avatars/danny.jpg";
+import avatarTunde from "@/assets/avatars/tunde.jpg";
+import avatarSarah from "@/assets/avatars/sarah.jpg";
+
 export interface MockArtist {
   id: string;
   username: string;
@@ -23,7 +32,7 @@ export const MOCK_ARTISTS: MockArtist[] = [
     id: "mock-1",
     username: "lo_ferraro",
     display_name: "Lo Ferraro",
-    avatar_url: null,
+    avatar_url: avatarLo,
     bio: "Bedroom producer, broken keys, late nights. Demos always rough on purpose.",
     location: "Brooklyn, NY",
     instruments: ["keys", "drum machine", "vocals"],
@@ -36,7 +45,7 @@ export const MOCK_ARTISTS: MockArtist[] = [
     id: "mock-2",
     username: "junipergrove",
     display_name: "Juniper Grove",
-    avatar_url: null,
+    avatar_url: avatarJuniper,
     bio: "Folk + ambient field recordings. I write songs while walking.",
     location: "Asheville, NC",
     instruments: ["acoustic guitar", "vocals"],
@@ -49,7 +58,7 @@ export const MOCK_ARTISTS: MockArtist[] = [
     id: "mock-3",
     username: "808kazu",
     display_name: "kazu",
-    avatar_url: null,
+    avatar_url: avatarKazu,
     bio: "Beats / lo-fi / boom bap. Open to vocal features.",
     location: "Osaka, JP",
     instruments: ["mpc", "sampler", "bass"],
@@ -62,7 +71,7 @@ export const MOCK_ARTISTS: MockArtist[] = [
     id: "mock-4",
     username: "rae.solos",
     display_name: "Rae",
-    avatar_url: null,
+    avatar_url: avatarRae,
     bio: "Singer-songwriter. Looking for a producer to finish 3 demos sitting on my phone.",
     location: "Austin, TX",
     instruments: ["vocals", "piano"],
@@ -75,7 +84,7 @@ export const MOCK_ARTISTS: MockArtist[] = [
     id: "mock-5",
     username: "marisol.bass",
     display_name: "Marisol",
-    avatar_url: null,
+    avatar_url: avatarMarisol,
     bio: "Bassist for hire. Funk, neo-soul, jazz. DM for stems.",
     location: "Mexico City",
     instruments: ["bass", "synth"],
@@ -88,7 +97,7 @@ export const MOCK_ARTISTS: MockArtist[] = [
     id: "mock-6",
     username: "danny_modular",
     display_name: "Danny K",
-    avatar_url: null,
+    avatar_url: avatarDanny,
     bio: "Modular synth experiments. Cassettes only.",
     location: "Berlin, DE",
     instruments: ["modular", "tape"],
@@ -101,7 +110,7 @@ export const MOCK_ARTISTS: MockArtist[] = [
     id: "mock-7",
     username: "tunde.drums",
     display_name: "Tunde",
-    avatar_url: null,
+    avatar_url: avatarTunde,
     bio: "Drummer. Loose grooves. Always recording.",
     location: "Lagos, NG",
     instruments: ["drums", "percussion"],
@@ -114,7 +123,7 @@ export const MOCK_ARTISTS: MockArtist[] = [
     id: "mock-8",
     username: "saraha.guitar",
     display_name: "Sarah A.",
-    avatar_url: null,
+    avatar_url: avatarSarah,
     bio: "Indie guitarist. Reverb-heavy. I make 90 second songs.",
     location: "Montreal, CA",
     instruments: ["electric guitar"],
