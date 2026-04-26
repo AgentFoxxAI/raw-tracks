@@ -274,6 +274,50 @@ export function PostCard({ post, autoplayOnVisible = true, onDeleted }: Props) {
             {post.title}
           </button>
         </div>
+        {isOwner && (
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen((v) => !v);
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-surface-elevated hover:text-foreground"
+              aria-label="Post options"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+            >
+              <MoreHorizontal size={18} />
+            </button>
+            {menuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setMenuOpen(false)}
+                  aria-hidden
+                />
+                <div
+                  role="menu"
+                  className="absolute right-0 top-9 z-20 w-44 overflow-hidden rounded-md border border-border bg-surface-elevated shadow-lg"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleDelete();
+                    }}
+                    disabled={deleting}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                  >
+                    <Trash2 size={14} />
+                    {deleting ? "Deleting…" : "Delete post"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Media */}
