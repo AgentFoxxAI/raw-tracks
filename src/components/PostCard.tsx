@@ -38,6 +38,8 @@ interface Props {
   post: PostCardData;
   /** When true, autoplays when scrolled into view (feed). When false, requires tap (detail). */
   autoplayOnVisible?: boolean;
+  /** Called after the post is successfully deleted. */
+  onDeleted?: (id: string) => void;
 }
 
 const LONG_PRESS_MS = 600;
