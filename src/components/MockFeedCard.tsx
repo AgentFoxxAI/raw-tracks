@@ -17,6 +17,7 @@ export function MockFeedCard({ post }: Props) {
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
   const [likeCount, setLikeCount] = useState(post.like_count);
+  const [scrubProgress, setScrubProgress] = useState(0);
 
   const wave = fakeWaveform(post.waveform_seed);
   const initials = (post.artist.display_name ?? "?").slice(0, 1).toUpperCase();
@@ -102,9 +103,16 @@ export function MockFeedCard({ post }: Props) {
                 {playing ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
               </button>
               <div className="min-w-0 flex-1">
-                <Waveform data={wave} progress={playing ? 0.4 : 0} playing={playing} height={48} bars={56} />
+                <Waveform
+                  data={wave}
+                  progress={scrubProgress || (playing ? 0.4 : 0)}
+                  playing={playing}
+                  height={48}
+                  bars={56}
+                  onSeek={(p) => setScrubProgress(p)}
+                />
                 <div className="mt-1 flex items-center justify-between label-tape text-muted-foreground">
-                  <span>AUDIO</span>
+                  <span>{formatDuration(scrubProgress * (post.duration_seconds ?? 0))}</span>
                   <span>{formatDuration(post.duration_seconds)}</span>
                 </div>
               </div>

@@ -377,13 +377,24 @@ export function PostCard({ post, autoplayOnVisible = true, onDeleted }: Props) {
               >
                 {playing && muted ? <VolumeX size={22} /> : <Play size={22} className="ml-0.5" />}
               </span>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1" onPointerDown={(e) => e.stopPropagation()}>
                 <Waveform
                   data={post.waveform_data}
                   progress={progress}
                   playing={playing && !muted}
                   height={48}
                   bars={56}
+                  onSeek={(p) => {
+                    const el = audioRef.current;
+                    if (!el) return;
+                    if (!isActive) ActivePlayer.set(post.id);
+                    const dur = el.duration || post.duration_seconds || 0;
+                    if (dur > 0) {
+                      el.currentTime = p * dur;
+                      setProgress(p);
+                      setCurrentSeconds(p * dur);
+                    }
+                  }}
                 />
                 <div className="mt-1 flex items-center justify-between label-tape text-muted-foreground">
                   <span>{post.media_type.toUpperCase()}</span>

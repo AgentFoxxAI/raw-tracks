@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface WaveformProps {
@@ -49,34 +49,81 @@ export function Waveform({
     return fallbackWaveform(bars);
   }, [data, bars]);
 
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!onSeek) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const p = (e.clientX - rect.left) / rect.width;
-    onSeek(Math.max(0, Math.min(1, p)));
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [dragProgress, setDragProgress] = useState<number | null>(null);
+
+  const computeProgress = (clientX: number): number => {
+    const el = containerRef.current;
+    if (!el) return 0;
+    const rect = el.getBoundingClientRect();
+    const p = (clientX - rect.left) / rect.width;
+    return Math.max(0, Math.min(1, p));
   };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!onSeek) return;
+    e.stopPropagation();
+    e.preventDefault();
+    (e.currentTarget as HTMLDivElement).setPointerCapture?.(e.pointerId);
+    setDragging(true);
+    const p = computeProgress(e.clientX);
+    setDragProgress(p);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!onSeek || !dragging) return;
+    e.stopPropagation();
+    const p = computeProgress(e.clientX);
+    setDragProgress(p);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!onSeek) return;
+    e.stopPropagation();
+    const p = computeProgress(e.clientX);
+    onSeek(p);
+    setDragging(false);
+    setDragProgress(null);
+    (e.currentTarget as HTMLDivElement).releasePointerCapture?.(e.pointerId);
+  };
+
+  const handlePointerCancel = () => {
+    setDragging(false);
+    setDragProgress(null);
+  };
+
+  const shownProgress = dragProgress ?? progress;
 
   return (
     <div
+      ref={containerRef}
       className={cn(
-        "flex items-center gap-[2px] select-none",
+        "flex items-center gap-[2px] select-none touch-none",
         onSeek && "cursor-pointer",
         className,
       )}
       style={{ height }}
-      onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+      onClick={(e) => e.stopPropagation()}
       role={onSeek ? "slider" : undefined}
       aria-label="Audio waveform"
+      aria-valuemin={0}
+      aria-valuemax={1}
+      aria-valuenow={shownProgress}
     >
       {peaks.map((p, i) => {
-        const filled = i / peaks.length <= progress;
+        const filled = i / peaks.length <= shownProgress;
         return (
           <div
             key={i}
             className={cn(
-              "flex-1 rounded-[1px] transition-colors",
+              "flex-1 rounded-[1px] transition-colors pointer-events-none",
               filled ? "bg-primary" : "bg-foreground/25",
-              playing && "wave-bar-playing",
+              playing && !dragging && "wave-bar-playing",
             )}
             style={{
               height: `${Math.max(8, p * 100)}%`,
