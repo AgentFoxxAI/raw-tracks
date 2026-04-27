@@ -112,7 +112,7 @@ export function MockFeedCard({ post }: Props) {
                   onSeek={(p) => setScrubProgress(p)}
                 />
                 <div className="mt-1 flex items-center justify-between label-tape text-muted-foreground">
-                  <span>{formatDuration(scrubProgress * post.duration_seconds)}</span>
+                  <span>{formatDuration(scrubProgress * (post.duration_seconds ?? 0))}</span>
                   <span>{formatDuration(post.duration_seconds)}</span>
                 </div>
               </div>
