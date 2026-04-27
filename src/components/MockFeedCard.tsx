@@ -17,6 +17,7 @@ export function MockFeedCard({ post }: Props) {
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
   const [likeCount, setLikeCount] = useState(post.like_count);
+  const [scrubProgress, setScrubProgress] = useState(0);
 
   const wave = fakeWaveform(post.waveform_seed);
   const initials = (post.artist.display_name ?? "?").slice(0, 1).toUpperCase();
