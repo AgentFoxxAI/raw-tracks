@@ -489,6 +489,16 @@ function PostDetail() {
                     playing={playing}
                     height={64}
                     bars={72}
+                    onSeek={(p) => {
+                      const el = audioRef.current;
+                      if (!el) return;
+                      const d = el.duration || post.duration_seconds || 0;
+                      if (d > 0) {
+                        el.currentTime = p * d;
+                        setProgress(p);
+                        setCurrentSeconds(p * d);
+                      }
+                    }}
                   />
                   <div className="mt-1 flex justify-between label-tape text-muted-foreground">
                     <span>{post.media_type.toUpperCase()}</span>
