@@ -103,9 +103,16 @@ export function MockFeedCard({ post }: Props) {
                 {playing ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
               </button>
               <div className="min-w-0 flex-1">
-                <Waveform data={wave} progress={playing ? 0.4 : 0} playing={playing} height={48} bars={56} />
+                <Waveform
+                  data={wave}
+                  progress={scrubProgress || (playing ? 0.4 : 0)}
+                  playing={playing}
+                  height={48}
+                  bars={56}
+                  onSeek={(p) => setScrubProgress(p)}
+                />
                 <div className="mt-1 flex items-center justify-between label-tape text-muted-foreground">
-                  <span>AUDIO</span>
+                  <span>{formatDuration(scrubProgress * post.duration_seconds)}</span>
                   <span>{formatDuration(post.duration_seconds)}</span>
                 </div>
               </div>
